@@ -171,6 +171,43 @@ def _remove_tags(value, _, **__):
     return re.sub(r"<[^>]+>", " ", value).strip()
 
 
+@_t("normalize_whitespace")
+def _normalize_whitespace(value, _, **__):
+    if not isinstance(value, str):
+        return value
+    return re.sub(r"\s+", " ", value).strip()
+
+
+@_t("truncate")
+def _truncate(value, length, **__):
+    if not isinstance(value, str):
+        return value
+    max_length = int(length)
+    if len(value) <= max_length:
+        return value
+    # Truncate at max_length and avoid breaking words
+    truncated = value[:max_length]
+    # Find last space and truncate there
+    last_space = truncated.rfind(" ")
+    if last_space > 0:
+        truncated = truncated[:last_space]
+    return truncated + "..."
+
+
+@_t("slugify")
+def _slugify(value, _, **__):
+    if not isinstance(value, str):
+        return value
+    # Convert to lowercase
+    value = value.lower()
+    # Remove special characters (except alphanumeric, spaces, hyphens)
+    value = re.sub(r"[^\w\s-]", "", value)
+    # Replace spaces and underscores with hyphens
+    value = re.sub(r"[\s_-]+", "-", value)
+    # Strip leading/trailing hyphens
+    return value.strip("-")
+
+
 @_t("template")
 def _template(value, pattern, ctx=None, **__):
     """Replace {value} with the field value and {field} with other fields."""
