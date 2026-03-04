@@ -1,5 +1,10 @@
 # Scrapit
 
+[![CI](https://github.com/joaobenedetmachado/scrapit/actions/workflows/ci.yml/badge.svg)](https://github.com/joaobenedetmachado/scrapit/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 A modular, YAML-driven web scraper framework. Describe any scraping target in a config file — Scrapit handles fetching, parsing, transforming, validating, and storing the data.
 
 No code required for new targets. Just write a YAML.
@@ -403,6 +408,19 @@ json_file.save(result, "wikipedia")
 
 ---
 
+## Contributing
+
+Contributions are welcome! Whether it's a bug fix, a new transform, a new storage backend, or just sharing a directive YAML that works for a site you scraped.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for a full guide on how to get started.
+
+Quick ways to contribute:
+- **Share a directive** — open an issue with the "Share a Directive" template
+- **New transform** — add a function to `scraper/transforms/__init__.py` and open a PR
+- **Bug report** — use the bug report issue template
+
+---
+
 ## Requirements
 
 - Python 3.10+
@@ -411,3 +429,9 @@ json_file.save(result, "wikipedia")
 - `pymongo`, `python-dotenv` — only for MongoDB
 - `pika` — only for RabbitMQ queue
 - SQLite is included in Python's stdlib (no install needed)
+
+---
+
+## License
+
+[MIT](LICENSE) © João Benedet Machado

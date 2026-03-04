@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-check:
+    name: Lint & import check
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff
+
+      - name: Lint with ruff
+        run: ruff check scraper/ --ignore E501,F401
+
+      - name: Check module imports
+        run: |
+          python -c "import scraper.config"
+          python -c "import scraper.logger"
+          python -c "import scraper.hooks"
+          python -c "import scraper.reporter"
+          python -c "import scraper.transforms"
+          python -c "import scraper.validators"
+          python -c "import scraper.scrapers"
+          python -c "import scraper.scrapers.bs4_scraper"
+          python -c "import scraper.scrapers.paginator"
+          python -c "import scraper.scrapers.spider"
+          python -c "import scraper.storage.json_file"
+          python -c "import scraper.storage.csv_file"
+          python -c "import scraper.storage.sqlite"
+          python -c "import scraper.storage.diff"
+          python -c "import scraper.cache"
+          python -c "import scraper.notifications"
+
+      - name: Validate example directives (YAML parse)
+        run: |
+          python -c "
+          import yaml, pathlib
+          for f in pathlib.Path('scraper/directives').glob('*.yaml'):
+              data = yaml.safe_load(f.read_text())
+              assert 'site' in data or 'sites' in data, f'{f.name}: missing site'
+              assert 'use' in data, f'{f.name}: missing use'
+              assert 'scrape' in data, f'{f.name}: missing scrape'
+              print(f'  ok: {f.name}')
+          "
