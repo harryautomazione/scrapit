@@ -46,7 +46,7 @@ source .venv/bin/activate
 
 pip install -r requirements.txt
 
-# Only if you use the playwright backend:
+# if you use the playwright backend:
 playwright install chromium
 ```
 
