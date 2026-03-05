@@ -9,301 +9,632 @@
   <meta property="og:description" content="Scrape any website with just a YAML file. No code needed for new targets." />
   <meta property="og:type" content="website" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Instrument+Serif:ital@0;1&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:      #0d1117;
-      --bg2:     #161b22;
-      --bg3:     #21262d;
-      --border:  #30363d;
-      --text:    #e6edf3;
-      --muted:   #8b949e;
-      --accent:  #58a6ff;
-      --green:   #3fb950;
-      --orange:  #f78166;
-      --purple:  #bc8cff;
-      --yellow:  #e3b341;
-      --r: 10px;
+      --ink:       #0c0b09;
+      --ink2:      #141210;
+      --ink3:      #1e1c19;
+      --border:    #2a2724;
+      --border2:   #3d3a35;
+      --text:      #f0ede8;
+      --muted:     #7a7570;
+      --dim:       #4a4742;
+      --amber:     #58a6ff;
+      --amber2:    #79c0ff;
+      --yellow:    #f2c94c;
+      --green:     #5bb98c;
+      --teal:      #4ecdc4;
+      --red:       #e05252;
+      --r:         4px;
+      --mono:      'IBM Plex Mono', monospace;
+      --serif:     'Instrument Serif', Georgia, serif;
+      --sans:      'Syne', sans-serif;
     }
 
     html { scroll-behavior: smooth; }
-    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    code { font-family: 'JetBrains Mono', monospace; font-size: .85em; background: var(--bg3); padding: .1em .35em; border-radius: 4px; }
+
+    body {
+      font-family: var(--mono);
+      background: var(--ink);
+      color: var(--text);
+      line-height: 1.6;
+      position: relative;
+    }
+
+    /* Grain overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+      opacity: 0.028;
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    a { color: var(--amber); text-decoration: none; }
+    a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+    code {
+      font-family: var(--mono);
+      font-size: .82em;
+      background: var(--ink3);
+      border: 1px solid var(--border);
+      padding: .1em .4em;
+      border-radius: 3px;
+      color: var(--amber2);
+    }
 
     /* ── NAV ─────────────────────────────────────── */
     nav {
       position: sticky; top: 0; z-index: 100;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 0 2rem; height: 60px;
-      background: rgba(13,17,23,.9); backdrop-filter: blur(12px);
+      padding: 0 2rem; height: 52px;
+      background: rgba(12,11,9,.95);
+      backdrop-filter: blur(8px);
       border-bottom: 1px solid var(--border);
     }
-    .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--text); }
-    .nav-logo span { color: var(--accent); }
-    .nav-links { display: flex; gap: 1.5rem; font-size: .875rem; }
-    .nav-links a { color: var(--muted); transition: color .15s; }
-    .nav-links a:hover { color: var(--text); text-decoration: none; }
-    .nav-right { display: flex; gap: .75rem; align-items: center; }
-    .btn {
-      display: inline-flex; align-items: center; gap: .4rem;
-      padding: .5rem 1.1rem; border-radius: var(--r);
-      font-size: .875rem; font-weight: 500;
-      transition: opacity .15s, transform .1s; cursor: pointer;
+
+    .nav-logo {
+      font-family: var(--sans);
+      font-weight: 700;
+      font-size: 1.2rem;
+      color: var(--text);
+      letter-spacing: -.03em;
     }
-    .btn:hover { opacity: .85; transform: translateY(-1px); text-decoration: none; }
-    .btn-primary { background: var(--accent); color: #0d1117; }
-    .btn-outline { border: 1px solid var(--border); background: var(--bg3); color: var(--text); }
-    .btn-sm { padding: .35rem .8rem; font-size: .8rem; }
+    .nav-logo span { color: var(--amber); }
+
+    .nav-links { display: flex; gap: 1.75rem; font-size: .78rem; }
+    .nav-links a {
+      color: var(--muted);
+      transition: color .15s;
+      font-family: var(--mono);
+      letter-spacing: .02em;
+    }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+    .nav-right { display: flex; gap: .6rem; align-items: center; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: .35rem;
+      padding: .4rem 1rem;
+      font-size: .78rem; font-weight: 500;
+      font-family: var(--mono);
+      transition: all .15s; cursor: pointer;
+      border-radius: var(--r);
+      letter-spacing: .02em;
+    }
+    .btn:hover { text-decoration: none; transform: translateY(-1px); }
+    .btn-primary {
+      background: var(--amber);
+      color: var(--ink);
+      border: 1px solid var(--amber);
+    }
+    .btn-primary:hover { background: var(--amber2); border-color: var(--amber2); }
+    .btn-outline {
+      border: 1px solid var(--border2);
+      background: transparent;
+      color: var(--muted);
+    }
+    .btn-outline:hover { border-color: var(--muted); color: var(--text); }
+    .btn-sm { padding: .3rem .7rem; font-size: .73rem; }
 
     /* ── HERO ────────────────────────────────────── */
     .hero {
-      text-align: center; padding: 6rem 1.5rem 4.5rem;
-      position: relative; overflow: hidden;
+      padding: 5rem 2rem 4rem;
+      max-width: 1100px;
+      margin: 0 auto;
+      position: relative;
     }
-    .hero::before {
-      content: ''; position: absolute; inset: 0;
-      background: radial-gradient(ellipse 70% 50% at 50% -10%, rgba(88,166,255,.13), transparent);
-      pointer-events: none;
+
+    .hero-eyebrow {
+      display: flex; align-items: center; gap: .75rem;
+      margin-bottom: 2rem;
+      font-size: .72rem;
+      color: var(--muted);
+      letter-spacing: .1em;
+      text-transform: uppercase;
     }
-    .badges { display: flex; gap: .5rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1.75rem; }
-    .badge {
-      display: inline-block; padding: .2rem .65rem; border-radius: 99px;
-      border: 1px solid rgba(88,166,255,.25); background: rgba(88,166,255,.07);
-      color: var(--accent); font-size: .78rem; font-weight: 500;
+    .hero-eyebrow::before {
+      content: '';
+      display: block; width: 28px; height: 1px;
+      background: var(--amber);
     }
-    .badge.green { border-color: rgba(63,185,80,.25); background: rgba(63,185,80,.07); color: var(--green); }
-    .badge.purple { border-color: rgba(188,140,255,.25); background: rgba(188,140,255,.07); color: var(--purple); }
+    .hero-eyebrow span { color: var(--amber); }
+
+    .hero-layout {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 3rem;
+      align-items: start;
+    }
+
     h1 {
-      font-size: clamp(2.5rem, 6vw, 4.5rem);
-      font-weight: 800; letter-spacing: -.035em;
-      line-height: 1.08; margin-bottom: 1.25rem;
+      font-family: var(--serif);
+      font-size: clamp(3rem, 7vw, 6rem);
+      font-weight: 400;
+      letter-spacing: -.02em;
+      line-height: 1.0;
+      margin-bottom: 1.5rem;
+      color: var(--text);
     }
-    h1 em { color: var(--accent); font-style: normal; }
+    h1 em {
+      font-style: italic;
+      color: var(--amber);
+    }
+    h1 .mono-accent {
+      font-family: var(--mono);
+      font-size: .52em;
+      font-style: normal;
+      color: var(--muted);
+      display: block;
+      margin-top: .3rem;
+      letter-spacing: .02em;
+    }
+
     .hero-sub {
-      font-size: clamp(1rem, 2.2vw, 1.2rem);
-      color: var(--muted); max-width: 540px; margin: 0 auto 2.5rem;
+      font-size: .9rem;
+      color: var(--muted);
+      max-width: 480px;
+      margin-bottom: 2.5rem;
+      line-height: 1.7;
     }
-    .hero-actions { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; }
-    .install-row {
-      display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;
-      margin-top: 2rem;
+
+    .hero-actions { display: flex; gap: .75rem; flex-wrap: wrap; margin-bottom: 2rem; }
+
+    .install-block {
+      display: flex; flex-direction: column; gap: .5rem;
     }
-    .install-box {
+    .install-line {
       display: inline-flex; align-items: center; gap: .75rem;
-      padding: .65rem 1.1rem;
-      background: var(--bg2); border: 1px solid var(--border);
-      border-radius: var(--r); font-family: 'JetBrains Mono', monospace;
-      font-size: .85rem; color: var(--muted);
+      padding: .6rem 1rem;
+      background: var(--ink2);
+      border: 1px solid var(--border);
+      border-left: 2px solid var(--amber);
+      font-family: var(--mono);
+      font-size: .82rem;
+      color: var(--text);
+      width: fit-content;
     }
-    .install-box .ps { color: var(--green); }
+    .install-line .ps { color: var(--amber); }
+    .install-line .pkg { color: var(--text); }
+    .install-line .extra { color: var(--muted); }
     .copy-btn {
       background: none; border: none; cursor: pointer;
-      color: var(--muted); font-size: .85rem; transition: color .15s; padding: 0;
+      color: var(--dim); font-size: .75rem;
+      transition: color .15s; padding: 0;
+      font-family: var(--mono);
+      margin-left: auto;
     }
-    .copy-btn:hover { color: var(--text); }
+    .copy-btn:hover { color: var(--amber); }
 
-    /* ── STATS ───────────────────────────────────── */
-    .stats {
-      border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
-      background: var(--bg2);
+    .hero-side {
+      display: flex; flex-direction: column;
+      gap: 1px;
+      min-width: 200px;
     }
-    .stats-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      max-width: 900px; margin: 0 auto;
+    .hero-meta-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: .55rem .85rem;
+      background: var(--ink2);
+      border: 1px solid var(--border);
+      font-size: .75rem;
+      gap: 1.5rem;
     }
-    .stat {
-      padding: 2rem 1rem; text-align: center;
+    .hero-meta-item .label { color: var(--muted); }
+    .hero-meta-item .val { color: var(--text); font-weight: 500; }
+    .hero-meta-item .val.green { color: var(--green); }
+    .hero-meta-item .val.amber { color: var(--amber); }
+
+    @media (max-width: 760px) {
+      .hero-layout { grid-template-columns: 1fr; }
+      .hero-side { flex-direction: row; flex-wrap: wrap; }
+      .hero-meta-item { flex: 1 1 140px; }
+    }
+
+    /* ── TICKER / STATS ──────────────────────────── */
+    .ticker-wrap {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: var(--ink2);
+      overflow: hidden;
+      position: relative;
+    }
+    .ticker-wrap::before,
+    .ticker-wrap::after {
+      content: '';
+      position: absolute; top: 0; bottom: 0; width: 60px; z-index: 2;
+      pointer-events: none;
+    }
+    .ticker-wrap::before { left: 0; background: linear-gradient(to right, var(--ink2), transparent); }
+    .ticker-wrap::after  { right: 0; background: linear-gradient(to left, var(--ink2), transparent); }
+
+    .ticker-track {
+      display: flex; gap: 0;
+      animation: ticker-scroll 28s linear infinite;
+      width: max-content;
+    }
+    .ticker-track:hover { animation-play-state: paused; }
+
+    @keyframes ticker-scroll {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+
+    .ticker-item {
+      display: flex; align-items: center; gap: .75rem;
+      padding: .85rem 2.5rem;
+      white-space: nowrap;
       border-right: 1px solid var(--border);
+      font-size: .8rem;
     }
-    .stat:last-child { border-right: none; }
-    .stat-num { font-size: 2rem; font-weight: 800; color: var(--accent); letter-spacing: -.03em; }
-    .stat-label { font-size: .8rem; color: var(--muted); margin-top: .25rem; }
+    .ticker-item .t-num {
+      font-family: var(--mono);
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--amber);
+    }
+    .ticker-item .t-label { color: var(--muted); }
+    .ticker-dot {
+      width: 4px; height: 4px; border-radius: 50%;
+      background: var(--border2);
+      flex-shrink: 0;
+    }
 
-    /* ── SECTIONS ────────────────────────────────── */
-    section { padding: 5rem 1.5rem; }
-    .container { max-width: 1100px; margin: 0 auto; }
-    .section-label {
-      font-size: .75rem; font-weight: 700; letter-spacing: .1em;
-      text-transform: uppercase; color: var(--accent); margin-bottom: .6rem;
+    /* ── SECTION WRAPPER ─────────────────────────── */
+    .section-wrap {
+      padding: 5rem 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .section-alt {
+      background: var(--ink2);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .section-alt .section-wrap { max-width: 1100px; margin: 0 auto; }
+
+    .section-header {
+      display: flex; align-items: baseline; gap: 1.25rem;
+      margin-bottom: 3rem;
+      padding-bottom: 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-num {
+      font-family: var(--mono);
+      font-size: .72rem;
+      color: var(--amber);
+      letter-spacing: .08em;
+      font-weight: 500;
+      flex-shrink: 0;
     }
     h2 {
-      font-size: clamp(1.6rem, 3vw, 2.2rem);
-      font-weight: 700; margin-bottom: .75rem; letter-spacing: -.025em;
+      font-family: var(--serif);
+      font-size: clamp(1.6rem, 3vw, 2.4rem);
+      font-weight: 400;
+      letter-spacing: -.02em;
+      line-height: 1.15;
     }
-    .section-sub { color: var(--muted); max-width: 580px; margin-bottom: 3rem; font-size: .95rem; }
+    h2 em { font-style: italic; color: var(--amber); }
+    .section-sub {
+      color: var(--muted);
+      font-size: .85rem;
+      max-width: 540px;
+      line-height: 1.7;
+      margin-left: auto;
+      text-align: right;
+      flex: 1;
+    }
 
     /* ── TABS ────────────────────────────────────── */
-    .tab-bar { display: flex; gap: .25rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
-    .tab-btn {
-      padding: .45rem 1rem; border-radius: 6px;
-      border: 1px solid transparent; background: none;
-      font-size: .85rem; font-weight: 500; color: var(--muted);
-      cursor: pointer; font-family: inherit; transition: all .15s;
+    .tab-bar {
+      display: flex; gap: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      overflow: hidden;
+      margin-bottom: 1.25rem;
+      width: fit-content;
     }
-    .tab-btn:hover { color: var(--text); border-color: var(--border); }
-    .tab-btn.active { background: var(--bg3); border-color: var(--border); color: var(--text); }
+    .tab-btn {
+      padding: .4rem .95rem;
+      border: none; border-right: 1px solid var(--border);
+      background: var(--ink2);
+      font-size: .75rem; font-weight: 400;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: var(--mono);
+      transition: all .15s;
+    }
+    .tab-btn:last-child { border-right: none; }
+    .tab-btn:hover { color: var(--text); background: var(--ink3); }
+    .tab-btn.active { background: var(--amber); color: var(--ink); font-weight: 500; }
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
 
     /* ── CODE CARD ───────────────────────────────── */
-    .code-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
-    .code-card.bg2 { background: var(--bg2); }
+    .code-card {
+      background: var(--ink);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      position: relative;
+    }
+    .code-card::before {
+      content: '';
+      position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+      background: var(--amber);
+    }
     .code-header {
-      display: flex; align-items: center; gap: .5rem;
-      padding: .55rem 1rem; border-bottom: 1px solid var(--border);
-      background: var(--bg2);
+      display: flex; align-items: center; gap: .45rem;
+      padding: .5rem .85rem .5rem 1.1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--ink2);
     }
-    .dot { width: 11px; height: 11px; border-radius: 50%; }
-    .dot-r { background: #ff5f57; }
-    .dot-y { background: #ffbd2e; }
-    .dot-g { background: #28c940; }
-    .code-filename { margin-left: .4rem; font-family: 'JetBrains Mono', monospace; font-size: .78rem; color: var(--muted); }
+    .dot { width: 9px; height: 9px; border-radius: 50%; }
+    .dot-r { background: #e05252; }
+    .dot-y { background: #e8c84a; }
+    .dot-g { background: #5bb98c; }
+    .code-filename {
+      margin-left: .35rem;
+      font-family: var(--mono);
+      font-size: .72rem;
+      color: var(--dim);
+    }
+
     pre {
-      padding: 1.25rem; font-family: 'JetBrains Mono', monospace;
-      font-size: .8rem; line-height: 1.75; overflow-x: auto; tab-size: 2;
+      padding: 1.25rem 1.25rem 1.25rem 1.4rem;
+      font-family: var(--mono);
+      font-size: .78rem;
+      line-height: 1.8;
+      overflow-x: auto;
+      tab-size: 2;
     }
-    .kw  { color: #ff7b72; }
-    .str { color: #a5d6ff; }
-    .val { color: #79c0ff; }
-    .cmt { color: #6e7681; }
-    .key { color: #7ee787; }
-    .num { color: #f2cc60; }
+
+    .kw  { color: #79c0ff; font-style: italic; }
+    .str { color: #b8d9a0; }
+    .val { color: #7ec8e3; }
+    .cmt { color: #4a4742; font-style: italic; }
+    .key { color: #f2c94c; }
+    .num { color: #e8aa6a; }
     .cmd { color: var(--green); }
-    .prm { color: var(--accent); }
-    .out { color: #6e7681; }
+    .prm { color: var(--amber2); }
+    .out { color: #4a4742; }
 
     /* ── TWO-COL ─────────────────────────────────── */
-    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start; }
-    .three-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; align-items: start; }
+    .three-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
     @media (max-width: 900px) { .two-col, .three-col { grid-template-columns: 1fr; } }
     @media (max-width: 640px) { .nav-links { display: none; } }
 
-    /* ── DEMO ────────────────────────────────────── */
-    .demo { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-    .step-list { list-style: none; display: flex; flex-direction: column; gap: .85rem; margin-bottom: 2rem; }
-    .step-item { display: flex; gap: .75rem; align-items: flex-start; }
+    /* ── STEP LIST ───────────────────────────────── */
+    .step-list { list-style: none; display: flex; flex-direction: column; gap: 0; margin-bottom: 2rem; }
+    .step-item {
+      display: flex; gap: 1rem; align-items: flex-start;
+      padding: .85rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .step-item:first-child { border-top: 1px solid var(--border); }
     .step-n {
-      flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
-      background: var(--accent); color: #0d1117;
-      font-size: .72rem; font-weight: 700;
-      display: flex; align-items: center; justify-content: center; margin-top: .18rem;
+      flex-shrink: 0;
+      font-family: var(--mono);
+      font-size: .7rem;
+      color: var(--amber);
+      font-weight: 500;
+      padding-top: .1rem;
+      letter-spacing: .05em;
+      min-width: 2rem;
     }
-    .step-t { font-size: .9rem; color: var(--muted); }
-    .step-t strong { color: var(--text); }
-
-    /* ── REFERENCE ───────────────────────────────── */
-    .reference { background: var(--bg); }
-    .ref-note {
-      display: inline-flex; gap: .4rem; align-items: center;
-      font-size: .78rem; color: var(--muted); margin-bottom: 1.5rem;
-    }
-    .ref-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block; }
+    .step-t { font-size: .85rem; color: var(--muted); line-height: 1.65; }
+    .step-t strong { color: var(--text); font-weight: 500; }
 
     /* ── FEATURES ────────────────────────────────── */
-    .features { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-    .feat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 1rem; }
-    .feat-card {
-      padding: 1.4rem; border-radius: var(--r);
-      border: 1px solid var(--border); background: var(--bg);
-      transition: border-color .2s, transform .15s;
+    .feat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
     }
-    .feat-card:hover { border-color: var(--accent); transform: translateY(-2px); }
-    .feat-icon { font-size: 1.3rem; margin-bottom: .6rem; }
-    .feat-card h3 { font-size: .95rem; font-weight: 600; margin-bottom: .3rem; }
-    .feat-card p { font-size: .85rem; color: var(--muted); line-height: 1.55; }
+    .feat-card {
+      padding: 1.5rem;
+      background: var(--ink);
+      transition: background .2s;
+      position: relative;
+    }
+    .feat-card:hover { background: var(--ink2); }
+    .feat-card:hover .feat-icon { color: var(--amber); }
+
+    .feat-icon {
+      font-size: .7rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: .75rem;
+      font-family: var(--mono);
+      transition: color .2s;
+    }
+    .feat-card h3 {
+      font-family: var(--mono);
+      font-size: .88rem;
+      font-weight: 500;
+      margin-bottom: .5rem;
+      color: var(--text);
+    }
+    .feat-card p { font-size: .8rem; color: var(--muted); line-height: 1.65; }
 
     /* ── TRANSFORMS TABLE ────────────────────────── */
-    .transforms { background: var(--bg); }
-    table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+    .table-wrap { border: 1px solid var(--border); overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; font-size: .82rem; }
     th {
-      text-align: left; padding: .65rem 1rem;
+      text-align: left; padding: .6rem 1rem;
       border-bottom: 1px solid var(--border);
-      color: var(--muted); font-weight: 600; font-size: .78rem;
-      text-transform: uppercase; letter-spacing: .06em;
+      color: var(--dim); font-weight: 500; font-size: .72rem;
+      text-transform: uppercase; letter-spacing: .08em;
+      font-family: var(--mono);
+      background: var(--ink2);
     }
-    td { padding: .6rem 1rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+    td { padding: .55rem 1rem; border-bottom: 1px solid var(--border); vertical-align: top; }
     tr:last-child td { border-bottom: none; }
-    tr:hover td { background: var(--bg2); }
-    .t-name { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: .82rem; }
-    .t-ex { font-family: 'JetBrains Mono', monospace; color: var(--muted); font-size: .78rem; }
-    .t-desc { color: var(--muted); }
-    .table-wrap { border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; background: var(--bg2); }
+    tr:hover td { background: var(--ink2); }
+    .t-name { font-family: var(--mono); color: var(--amber2); font-size: .78rem; }
+    .t-ex { font-family: var(--mono); color: var(--dim); font-size: .73rem; }
+    .t-desc { color: var(--muted); font-size: .8rem; }
 
     /* ── STORAGE ─────────────────────────────────── */
-    .storage { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-    .storage-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
-    .storage-card {
-      padding: 1.4rem; border-radius: var(--r);
-      border: 1px solid var(--border); background: var(--bg);
+    .storage-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      margin-bottom: 1.5rem;
     }
-    .storage-card h3 { font-size: .95rem; font-weight: 600; margin-bottom: .5rem; }
-    .storage-card .flag { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: .78rem; display: block; margin-bottom: .5rem; }
-    .storage-card p { font-size: .83rem; color: var(--muted); }
+    .storage-card {
+      padding: 1.5rem;
+      background: var(--ink2);
+    }
+    .storage-card h3 {
+      font-family: var(--mono);
+      font-size: .88rem; font-weight: 500; margin-bottom: .5rem;
+    }
+    .storage-card .flag {
+      font-family: var(--mono); color: var(--amber); font-size: .75rem;
+      display: block; margin-bottom: .6rem;
+    }
+    .storage-card p { font-size: .8rem; color: var(--muted); line-height: 1.65; }
 
     /* ── AI INTEGRATIONS ─────────────────────────── */
-    .integrations { background: var(--bg); }
-    .int-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem; }
-    .int-card { border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; background: var(--bg2); }
+    .int-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+    }
+    .int-card { background: var(--ink); overflow: hidden; }
     .int-header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: .85rem 1.1rem; border-bottom: 1px solid var(--border);
+      padding: .75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--ink2);
     }
-    .int-header h3 { font-size: .9rem; font-weight: 600; }
+    .int-header h3 {
+      font-family: var(--mono);
+      font-size: .82rem; font-weight: 500;
+    }
     .int-badge {
-      font-size: .68rem; padding: .12rem .45rem; border-radius: 4px;
-      background: rgba(88,166,255,.12); color: var(--accent); font-weight: 600;
+      font-size: .67rem; padding: .1rem .45rem;
+      background: rgba(88,166,255,.1);
+      color: var(--amber);
+      font-family: var(--mono);
+      border: 1px solid rgba(88,166,255,.2);
     }
-    .int-badge.green { background: rgba(63,185,80,.12); color: var(--green); }
-    .int-badge.purple { background: rgba(188,140,255,.12); color: var(--purple); }
-    .int-badge.yellow { background: rgba(227,179,65,.12); color: var(--yellow); }
-    .int-card pre { font-size: .78rem; }
+    .int-badge.green { background: rgba(91,185,140,.1); color: var(--green); border-color: rgba(91,185,140,.2); }
+    .int-badge.purple { background: rgba(78,205,196,.1); color: var(--teal); border-color: rgba(78,205,196,.2); }
+    .int-badge.yellow { background: rgba(242,201,76,.1); color: var(--yellow); border-color: rgba(242,201,76,.2); }
+    .int-card pre { font-size: .74rem; padding: 1rem 1rem 1rem 1.1rem; }
     .int-install {
-      padding: .5rem 1rem; border-top: 1px solid var(--border);
-      font-family: 'JetBrains Mono', monospace; font-size: .75rem;
-      color: var(--muted); background: var(--bg);
+      padding: .45rem 1rem;
+      border-top: 1px solid var(--border);
+      font-family: var(--mono); font-size: .72rem;
+      color: var(--dim); background: var(--ink2);
     }
     .int-install span { color: var(--green); }
 
     /* ── CONTRIBUTE ──────────────────────────────── */
-    .contribute { background: var(--bg2); border-top: 1px solid var(--border); }
-    .contrib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem; }
-    .contrib-card {
-      padding: 1.4rem; border-radius: var(--r);
-      border: 1px solid var(--border); background: var(--bg);
+    .contrib-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
     }
-    .contrib-card h3 { font-size: .95rem; font-weight: 600; margin-bottom: .4rem; }
-    .contrib-card p { font-size: .84rem; color: var(--muted); margin-bottom: .75rem; }
-    .contrib-card a { font-size: .84rem; }
+    .contrib-card {
+      padding: 1.5rem;
+      background: var(--ink);
+    }
+    .contrib-card .contrib-icon {
+      font-family: var(--mono);
+      font-size: .68rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: .6rem;
+      display: block;
+    }
+    .contrib-card h3 { font-family: var(--mono); font-size: .88rem; font-weight: 500; margin-bottom: .4rem; }
+    .contrib-card p { font-size: .8rem; color: var(--muted); margin-bottom: .85rem; line-height: 1.65; }
+    .contrib-card a { font-size: .8rem; color: var(--amber); }
+    .contrib-card a:hover { color: var(--amber2); }
 
     /* ── FAQ ─────────────────────────────────────── */
-    .faq { background: var(--bg); border-top: 1px solid var(--border); }
-    .faq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
-    @media (max-width: 700px) { .faq-grid { grid-template-columns: 1fr; } }
-    .faq-item h3 { font-size: .95rem; font-weight: 600; margin-bottom: .4rem; }
-    .faq-item p { font-size: .87rem; color: var(--muted); }
+    .faq-list { display: flex; flex-direction: column; gap: 0; }
+    .faq-item {
+      padding: 1.25rem 0;
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 2rem;
+      align-items: baseline;
+    }
+    .faq-item:first-child { border-top: 1px solid var(--border); }
+    .faq-item h3 {
+      font-family: var(--mono);
+      font-size: .85rem;
+      font-weight: 500;
+      color: var(--text);
+    }
+    .faq-item p { font-size: .82rem; color: var(--muted); line-height: 1.7; }
+    @media (max-width: 700px) {
+      .faq-item { grid-template-columns: 1fr; gap: .5rem; }
+    }
 
     /* ── FOOTER ──────────────────────────────────── */
     footer {
-      text-align: center; padding: 2.5rem 1.5rem;
       border-top: 1px solid var(--border);
-      color: var(--muted); font-size: .85rem;
+      padding: 2rem 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
     }
-    footer a { color: var(--muted); }
-    footer a:hover { color: var(--text); }
-    .footer-links { display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap; margin-bottom: .75rem; }
+    .footer-left {
+      font-family: var(--mono);
+      font-size: .75rem;
+      color: var(--muted);
+    }
+    .footer-left .logo-text { color: var(--text); font-weight: 500; }
+    .footer-links { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+    .footer-links a {
+      font-family: var(--mono);
+      font-size: .75rem;
+      color: var(--dim);
+      transition: color .15s;
+    }
+    .footer-links a:hover { color: var(--amber); text-decoration: none; }
 
-    /* ── MISC ────────────────────────────────────── */
-    .gap-1 { margin-bottom: 1rem; }
-    .pill {
-      display: inline-block; padding: .1rem .5rem; border-radius: 4px;
-      font-size: .72rem; font-weight: 600; text-transform: uppercase;
+    /* ── MISC UTILITIES ──────────────────────────── */
+    .mt-1 { margin-top: 1rem; }
+    .mt-15 { margin-top: 1.5rem; }
+
+    /* ── ANIMATIONS ──────────────────────────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
-    .pill-blue { background: rgba(88,166,255,.12); color: var(--accent); }
-    .pill-green { background: rgba(63,185,80,.12); color: var(--green); }
+    .hero h1, .hero .hero-sub, .hero .hero-actions, .hero .install-block {
+      animation: fadeUp .5s ease both;
+    }
+    .hero .hero-sub    { animation-delay: .08s; }
+    .hero .hero-actions { animation-delay: .14s; }
+    .hero .install-block { animation-delay: .2s; }
   </style>
 </head>
 <body>
@@ -312,17 +643,17 @@
 <nav>
   <div class="nav-logo">scrap<span>it</span></div>
   <div class="nav-links">
-    <a href="#demo">How it works</a>
-    <a href="#features">Features</a>
-    <a href="#transforms">Transforms</a>
-    <a href="#integrations">AI Integrations</a>
-    <a href="docs.html">Docs</a>
-    <a href="#contribute">Contribute</a>
+    <a href="#demo">how it works</a>
+    <a href="#features">features</a>
+    <a href="#transforms">transforms</a>
+    <a href="#integrations">ai integrations</a>
+    <a href="docs.html">docs</a>
+    <a href="#contribute">contribute</a>
   </div>
   <div class="nav-right">
     <a class="btn btn-outline btn-sm" href="https://pypi.org/project/scrapit-scraper/" target="_blank">PyPI</a>
-    <a class="btn btn-outline btn-sm" href="https://github.com/joaobenedetmachado/scrapit" target="_blank">
-      <svg height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+    <a class="btn btn-primary btn-sm" href="https://github.com/joaobenedetmachado/scrapit" target="_blank">
+      <svg height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
       GitHub
     </a>
   </div>
@@ -330,74 +661,142 @@
 
 <!-- ── HERO ──────────────────────────────────────── -->
 <section class="hero">
-  <div class="badges">
-    <span class="badge">MIT License</span>
-    <span class="badge green">Python 3.10+</span>
-    <span class="badge purple">AI-native</span>
+  <div class="hero-eyebrow">
+    <span>MIT License</span>
+    &nbsp;·&nbsp; Python 3.10+
+    &nbsp;·&nbsp; AI-native
   </div>
-  <h1>Scrape any website<br/><em>with just a YAML file</em></h1>
-  <p class="hero-sub">
-    Define your target in a config file. Scrapit handles fetching, parsing,
-    transforms, validation, storage, and AI agent integration — zero boilerplate.
-  </p>
-  <div class="hero-actions">
-    <a class="btn btn-primary" href="https://github.com/joaobenedetmachado/scrapit" target="_blank">Get started →</a>
-    <a class="btn btn-outline" href="#demo">See how it works</a>
-    <a class="btn btn-outline" href="https://github.com/joaobenedetmachado/scrapit/issues?q=label%3A%22good+first+issue%22" target="_blank">Good first issues</a>
-  </div>
-  <div class="install-row">
-    <div class="install-box">
-      <span class="ps">$</span> pip install scrapit-scraper
-      <button class="copy-btn" onclick="navigator.clipboard.writeText('pip install scrapit-scraper');this.textContent='✓';setTimeout(()=>this.textContent='⎘',1500)">⎘</button>
+
+  <div class="hero-layout">
+    <div>
+      <h1>Scrape any site<br/><em>with a YAML file.</em>
+        <span class="mono-accent">// no code needed</span>
+      </h1>
+      <p class="hero-sub">
+        Define your target in a config file. Scrapit handles fetching, parsing,
+        transforms, validation, storage, and AI agent integration — zero boilerplate.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="https://github.com/joaobenedetmachado/scrapit" target="_blank">get started →</a>
+        <a class="btn btn-outline" href="#demo">see how it works</a>
+        <a class="btn btn-outline" href="https://github.com/joaobenedetmachado/scrapit/issues?q=label%3A%22good+first+issue%22" target="_blank">good first issues</a>
+      </div>
+      <div class="install-block">
+        <div class="install-line">
+          <span class="ps">$</span>
+          <span class="pkg">pip install scrapit-scraper</span>
+          <button class="copy-btn" onclick="navigator.clipboard.writeText('pip install scrapit-scraper');this.textContent='✓';setTimeout(()=>this.textContent='⎘',1500)">⎘</button>
+        </div>
+        <div class="install-line">
+          <span class="ps">$</span>
+          <span class="pkg">pip install scrapit-scraper</span><span class="extra">[anthropic,mcp]</span>
+          <button class="copy-btn" onclick="navigator.clipboard.writeText('pip install scrapit-scraper[anthropic,mcp]');this.textContent='✓';setTimeout(()=>this.textContent='⎘',1500)">⎘</button>
+        </div>
+      </div>
     </div>
-    <div class="install-box">
-      <span class="ps">$</span> pip install scrapit-scraper[anthropic,mcp]
-      <button class="copy-btn" onclick="navigator.clipboard.writeText('pip install scrapit-scraper[anthropic,mcp]');this.textContent='✓';setTimeout(()=>this.textContent='⎘',1500)">⎘</button>
+
+    <div class="hero-side">
+      <div class="hero-meta-item">
+        <span class="label">transforms</span>
+        <span class="val amber">15+</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="label">storage backends</span>
+        <span class="val">4</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="label">ai frameworks</span>
+        <span class="val">5</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="label">scraping engines</span>
+        <span class="val">2</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="label">boilerplate</span>
+        <span class="val green">0</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="label">license</span>
+        <span class="val">MIT</span>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- ── STATS ──────────────────────────────────────── -->
-<div class="stats">
-  <div class="stats-grid">
-    <div class="stat"><div class="stat-num">15+</div><div class="stat-label">Transforms</div></div>
-    <div class="stat"><div class="stat-num">4</div><div class="stat-label">Storage backends</div></div>
-    <div class="stat"><div class="stat-num">5</div><div class="stat-label">AI frameworks</div></div>
-    <div class="stat"><div class="stat-num">2</div><div class="stat-label">Scraping backends</div></div>
-    <div class="stat"><div class="stat-num">0</div><div class="stat-label">Boilerplate</div></div>
+<!-- ── TICKER ─────────────────────────────────────── -->
+<div class="ticker-wrap">
+  <div class="ticker-track">
+    <!-- First pass -->
+    <div class="ticker-item"><span class="t-num">15+</span><span class="t-label">declarative transforms</span></div>
+    <div class="ticker-dot"></div>
+    <div class="ticker-item"><span class="t-num">BS4</span><span class="t-label">+ Playwright backends</span></div>
+    <div class="ticker-dot"></div>
+    <div class="ticker-item"><span class="t-num">JSON</span><span class="t-label">CSV / SQLite / MongoDB</span></div>
+    <div class="ticker-dot"></div>
+    <div class="ticker-item"><span class="t-num">MCP</span><span class="t-label">server included</span></div>
+    <div class="ticker-dot"></div>
+    <div class="ticker-item"><span class="t-num">--diff</span><span class="t-label">change detection</span></div>
+    <div class="ticker-dot"></div>
+    <div class="ticker-item"><span class="t-num">5</span><span class="t-label">AI framework integrations</span></div>
+    <div class="ticker-dot"></div>
+    <div class="ticker-item"><span class="t-num">0</span><span class="t-label">boilerplate required</span></div>
+    <div class="ticker-dot"></div>
+    <div class="ticker-item"><span class="t-num">YAML</span><span class="t-label">only config needed</span></div>
+    <div class="ticker-dot"></div>
+    <!-- Duplicate for seamless loop -->
+    <div class="ticker-item"><span class="t-num">15+</span><span class="t-label">declarative transforms</span></div>
+    <div class="ticker-dot"></div>
+    <div class="ticker-item"><span class="t-num">BS4</span><span class="t-label">+ Playwright backends</span></div>
+    <div class="ticker-dot"></div>
+    <div class="ticker-item"><span class="t-num">JSON</span><span class="t-label">CSV / SQLite / MongoDB</span></div>
+    <div class="ticker-dot"></div>
+    <div class="ticker-item"><span class="t-num">MCP</span><span class="t-label">server included</span></div>
+    <div class="ticker-dot"></div>
+    <div class="ticker-item"><span class="t-num">--diff</span><span class="t-label">change detection</span></div>
+    <div class="ticker-dot"></div>
+    <div class="ticker-item"><span class="t-num">5</span><span class="t-label">AI framework integrations</span></div>
+    <div class="ticker-dot"></div>
+    <div class="ticker-item"><span class="t-num">0</span><span class="t-label">boilerplate required</span></div>
+    <div class="ticker-dot"></div>
+    <div class="ticker-item"><span class="t-num">YAML</span><span class="t-label">only config needed</span></div>
+    <div class="ticker-dot"></div>
   </div>
 </div>
 
 <!-- ── HOW IT WORKS ───────────────────────────────── -->
-<section class="demo" id="demo">
-  <div class="container">
+<div id="demo">
+  <div class="section-wrap">
+    <div class="section-header">
+      <span class="section-num">01 —</span>
+      <h2>Write YAML.<br/><em>Get data.</em></h2>
+      <p class="section-sub">Define your target once. Re-run anytime with different output flags.</p>
+    </div>
     <div class="two-col">
       <div>
-        <div class="section-label">How it works</div>
-        <h2>Write YAML.<br/>Get data.</h2>
         <ul class="step-list">
           <li class="step-item">
-            <div class="step-n">1</div>
+            <div class="step-n">01</div>
             <div class="step-t"><strong>Describe your target</strong> — site URL, CSS selectors, transforms, and validation rules in a YAML file.</div>
           </li>
           <li class="step-item">
-            <div class="step-n">2</div>
+            <div class="step-n">02</div>
             <div class="step-t"><strong>Run one command</strong> — Scrapit fetches the page, applies your pipeline, and saves the result.</div>
           </li>
           <li class="step-item">
-            <div class="step-n">3</div>
+            <div class="step-n">03</div>
             <div class="step-t"><strong>Pick your output</strong> — JSON, CSV, SQLite, or MongoDB. Same directive, different flag.</div>
           </li>
           <li class="step-item">
-            <div class="step-n">4</div>
+            <div class="step-n">04</div>
             <div class="step-t"><strong>Plug into AI</strong> — use <code>ScrapitToolkit</code> or the MCP server to give any agent web access.</div>
           </li>
         </ul>
 
         <div class="tab-bar" id="demo-tabs">
-          <button class="tab-btn active" onclick="switchTab('basic', this)">Basic scrape</button>
-          <button class="tab-btn" onclick="switchTab('spider', this)">Spider mode</button>
-          <button class="tab-btn" onclick="switchTab('ai', this)">AI agent</button>
+          <button class="tab-btn active" onclick="switchTab('basic', this)">basic scrape</button>
+          <button class="tab-btn" onclick="switchTab('spider', this)">spider mode</button>
+          <button class="tab-btn" onclick="switchTab('ai', this)">ai agent</button>
         </div>
 
         <div id="tab-basic" class="tab-panel active">
@@ -527,86 +926,90 @@ answer = agent.run(
       </div>
     </div>
   </div>
-</section>
+</div>
 
 <!-- ── FEATURES ───────────────────────────────────── -->
-<section class="features" id="features">
-  <div class="container">
-    <div class="section-label">Features</div>
-    <h2>Everything you need, nothing you don't</h2>
-    <p class="section-sub">All configured from YAML. No Python needed to add a new scraping target.</p>
+<div class="section-alt" id="features">
+  <div class="section-wrap">
+    <div class="section-header">
+      <span class="section-num">02 —</span>
+      <h2>Everything you need,<br/><em>nothing you don't.</em></h2>
+      <p class="section-sub">All configured from YAML. No Python needed to add a new scraping target.</p>
+    </div>
 
     <div class="feat-grid">
       <div class="feat-card">
-        <div class="feat-icon">⚡</div>
+        <div class="feat-icon">// engines</div>
         <h3>Two scraping backends</h3>
         <p>BeautifulSoup for fast static pages. Playwright for JavaScript-heavy sites. Switch with <code>use: playwright</code>.</p>
       </div>
       <div class="feat-card">
-        <div class="feat-icon">📄</div>
+        <div class="feat-icon">// pagination</div>
         <h3>Pagination</h3>
         <p>Follow "next page" links automatically with <code>paginate:</code>. Controls <code>selector</code>, <code>attr</code>, and <code>max_pages</code>.</p>
       </div>
       <div class="feat-card">
-        <div class="feat-icon">🕷️</div>
+        <div class="feat-icon">// spider</div>
         <h3>Spider mode</h3>
         <p>Discover and scrape all linked pages from an index. Supports <code>same_domain</code> and <code>max</code> page limits.</p>
       </div>
       <div class="feat-card">
-        <div class="feat-icon">🔄</div>
+        <div class="feat-icon">// pipeline</div>
         <h3>Transform pipeline</h3>
         <p>15+ declarative transforms per field: <code>strip</code>, <code>regex</code>, <code>float</code>, <code>slugify</code>, <code>template</code>, <code>remove_tags</code> and more.</p>
       </div>
       <div class="feat-card">
-        <div class="feat-icon">✅</div>
+        <div class="feat-icon">// validation</div>
         <h3>Per-field validation</h3>
         <p>Enforce data quality at scrape time: <code>required</code>, <code>type</code>, <code>min/max</code>, <code>pattern</code>, <code>in</code>. Runs after transforms.</p>
       </div>
       <div class="feat-card">
-        <div class="feat-icon">💾</div>
+        <div class="feat-icon">// storage</div>
         <h3>4 storage backends</h3>
         <p>JSON, CSV (append mode), SQLite (zero-config), MongoDB. Mix and match with CLI flags on each run.</p>
       </div>
       <div class="feat-card">
-        <div class="feat-icon">⚡</div>
+        <div class="feat-icon">// cache</div>
         <h3>HTTP cache</h3>
         <p>File-based cache with TTL. Avoid hammering sites during development. Set <code>cache: {ttl: 3600}</code>.</p>
       </div>
       <div class="feat-card">
-        <div class="feat-icon">🔔</div>
+        <div class="feat-icon">// diff</div>
         <h3>Change detection</h3>
         <p>Diff results against the previous run. Fire a webhook when content changes. Use with <code>--diff</code>.</p>
       </div>
       <div class="feat-card">
-        <div class="feat-icon">🔌</div>
+        <div class="feat-icon">// hooks</div>
         <h3>Lifecycle hooks</h3>
         <p>Register Python callbacks for <code>before_scrape</code>, <code>after_scrape</code>, <code>on_error</code>, <code>on_change</code>, <code>on_save</code>.</p>
       </div>
       <div class="feat-card">
-        <div class="feat-icon">🤖</div>
+        <div class="feat-icon">// ai</div>
         <h3>AI-native</h3>
         <p>Native integrations for Claude, OpenAI, LangChain, CrewAI, LlamaIndex, and MCP. One import away.</p>
       </div>
       <div class="feat-card">
-        <div class="feat-icon">⚙️</div>
+        <div class="feat-icon">// selectors</div>
         <h3>Fallback selectors</h3>
         <p>Define a list of selectors per field. Scrapit tries them in order and uses the first match.</p>
       </div>
       <div class="feat-card">
-        <div class="feat-icon">📊</div>
+        <div class="feat-icon">// reporting</div>
         <h3>Run reports</h3>
         <p>Timing, field coverage, and validation summary printed after every scrape. Always know what happened.</p>
       </div>
     </div>
   </div>
-</section>
+</div>
 
 <!-- ── TRANSFORMS ─────────────────────────────────── -->
-<section class="transforms" id="transforms">
-  <div class="container">
-    <div class="section-label">Transform pipeline</div>
-    <h2>Clean data before it's stored</h2>
-    <p class="section-sub">Transforms run in order, per field, after scraping. Chain as many as you need in YAML.</p>
+<div id="transforms">
+  <div class="section-wrap">
+    <div class="section-header">
+      <span class="section-num">03 —</span>
+      <h2>Clean data<br/><em>before it's stored.</em></h2>
+      <p class="section-sub">Transforms run in order, per field, after scraping. Chain as many as you need in YAML.</p>
+    </div>
 
     <div class="two-col" style="gap:3rem;">
       <div>
@@ -639,11 +1042,11 @@ answer = agent.run(
       </div>
 
       <div>
-        <p style="color:var(--muted); font-size:.88rem; margin-bottom:1.25rem;">Transforms chain left to right. Each step receives the output of the previous one.</p>
+        <p style="color:var(--muted); font-size:.82rem; margin-bottom:1.25rem; line-height:1.7;">Transforms chain left to right. Each step receives the output of the previous one.</p>
         <div class="code-card">
           <div class="code-header">
             <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
-            <span class="code-filename">example — price cleaning</span>
+            <span class="code-filename">price cleaning</span>
           </div>
           <pre><span class="key">transform</span>:
   <span class="key">price</span>:
@@ -671,10 +1074,10 @@ answer = agent.run(
     - <span class="key">default</span>: <span class="str">"/placeholder.jpg"</span></pre>
         </div>
 
-        <div class="code-card" style="margin-top:1rem;">
+        <div class="code-card mt-1">
           <div class="code-header">
             <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
-            <span class="code-filename">example — validation</span>
+            <span class="code-filename">validation</span>
           </div>
           <pre><span class="key">validate</span>:
   <span class="key">price</span>:
@@ -697,14 +1100,16 @@ answer = agent.run(
       </div>
     </div>
   </div>
-</section>
+</div>
 
 <!-- ── STORAGE ────────────────────────────────────── -->
-<section class="storage" id="storage">
-  <div class="container">
-    <div class="section-label">Storage</div>
-    <h2>Pick your output</h2>
-    <p class="section-sub">Same directive, different flag. Mix multiple outputs per run.</p>
+<div class="section-alt" id="storage">
+  <div class="section-wrap">
+    <div class="section-header">
+      <span class="section-num">04 —</span>
+      <h2>Pick your <em>output.</em></h2>
+      <p class="section-sub">Same directive, different flag. Mix multiple outputs per run.</p>
+    </div>
 
     <div class="storage-grid">
       <div class="storage-card">
@@ -729,7 +1134,7 @@ answer = agent.run(
       </div>
     </div>
 
-    <div class="code-card" style="margin-top:1.5rem; max-width:680px;">
+    <div class="code-card" style="max-width:680px;">
       <div class="code-header">
         <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
         <span class="code-filename">multiple outputs + query</span>
@@ -741,14 +1146,16 @@ answer = agent.run(
 <span class="cmd">$</span> scrapit batch scraper/directives/ <span class="prm">--sqlite</span>  <span class="cmt"># run all directives</span></pre>
     </div>
   </div>
-</section>
+</div>
 
 <!-- ── AI INTEGRATIONS ────────────────────────────── -->
-<section class="integrations" id="integrations">
-  <div class="container">
-    <div class="section-label">AI Integrations</div>
-    <h2>Plug into any AI agent</h2>
-    <p class="section-sub">Native support for every major framework. All dependencies are optional — install only what you need.</p>
+<div id="integrations">
+  <div class="section-wrap">
+    <div class="section-header">
+      <span class="section-num">05 —</span>
+      <h2>Plug into<br/><em>any AI agent.</em></h2>
+      <p class="section-sub">Native support for every major framework. All dependencies are optional — install only what you need.</p>
+    </div>
 
     <div class="int-grid">
 
@@ -880,47 +1287,55 @@ data = scrape_with_selectors(<span class="str">"https://example.com"</span>, {
 
     </div>
   </div>
-</section>
+</div>
 
 <!-- ── CONTRIBUTE ─────────────────────────────────── -->
-<section class="contribute" id="contribute">
-  <div class="container">
-    <div class="section-label">Contributing</div>
-    <h2>Built in public. Open to everyone.</h2>
-    <p class="section-sub">All contributions are welcome — code, directives, docs, or just opening an issue.</p>
+<div class="section-alt" id="contribute">
+  <div class="section-wrap">
+    <div class="section-header">
+      <span class="section-num">06 —</span>
+      <h2>Built in public.<br/><em>Open to everyone.</em></h2>
+      <p class="section-sub">All contributions are welcome — code, directives, docs, or just opening an issue.</p>
+    </div>
 
     <div class="contrib-grid">
       <div class="contrib-card">
-        <h3>🐛 Bug report</h3>
+        <span class="contrib-icon">// bug</span>
+        <h3>Bug report</h3>
         <p>Include your directive YAML and full error traceback.</p>
         <a href="https://github.com/joaobenedetmachado/scrapit/issues/new?template=bug_report.md" target="_blank">Open a bug report →</a>
       </div>
       <div class="contrib-card">
-        <h3>✨ Good first issues</h3>
+        <span class="contrib-icon">// issues</span>
+        <h3>Good first issues</h3>
         <p>10 issues open — new transforms, directives for Reddit/IMDb/PyPI, and tests.</p>
         <a href="https://github.com/joaobenedetmachado/scrapit/issues?q=label%3A%22good+first+issue%22" target="_blank">View open issues →</a>
       </div>
       <div class="contrib-card">
-        <h3>📄 Share a directive</h3>
+        <span class="contrib-icon">// directive</span>
+        <h3>Share a directive</h3>
         <p>Got a working YAML for a site? Share it — it's the easiest way to contribute.</p>
         <a href="https://github.com/joaobenedetmachado/scrapit/issues/new?template=new_directive.md" target="_blank">Share a directive →</a>
       </div>
       <div class="contrib-card">
-        <h3>🔧 New transform</h3>
+        <span class="contrib-icon">// transform</span>
+        <h3>New transform</h3>
         <p>Add a function to <code>transforms/__init__.py</code>, document it, open a PR.</p>
         <a href="https://github.com/joaobenedetmachado/scrapit/blob/main/CONTRIBUTING.md" target="_blank">Read CONTRIBUTING.md →</a>
       </div>
     </div>
   </div>
-</section>
+</div>
 
 <!-- ── FAQ ───────────────────────────────────────── -->
-<section class="faq" id="faq">
-  <div class="container">
-    <div class="section-label">FAQ</div>
-    <h2>Common questions</h2>
-    <br/>
-    <div class="faq-grid">
+<div id="faq">
+  <div class="section-wrap">
+    <div class="section-header">
+      <span class="section-num">07 —</span>
+      <h2>Common <em>questions.</em></h2>
+    </div>
+
+    <div class="faq-list">
       <div class="faq-item">
         <h3>Do I need to write Python to use Scrapit?</h3>
         <p>No. For standard scraping you only write YAML. Python is only needed if you want to add custom hooks or a new storage backend.</p>
@@ -947,10 +1362,13 @@ data = scrape_with_selectors(<span class="str">"https://example.com"</span>, {
       </div>
     </div>
   </div>
-</section>
+</div>
 
 <!-- ── FOOTER ─────────────────────────────────────── -->
 <footer>
+  <div class="footer-left">
+    <span class="logo-text">scrapit</span> — made with care by <a href="https://github.com/joaobenedetmachado" target="_blank" style="color:var(--muted)">João Benedet Machado</a>
+  </div>
   <div class="footer-links">
     <a href="https://github.com/joaobenedetmachado/scrapit" target="_blank">GitHub</a>
     <a href="https://pypi.org/project/scrapit-scraper/" target="_blank">PyPI</a>
@@ -958,7 +1376,6 @@ data = scrape_with_selectors(<span class="str">"https://example.com"</span>, {
     <a href="https://github.com/joaobenedetmachado/scrapit/blob/main/CONTRIBUTING.md" target="_blank">Contributing</a>
     <a href="https://github.com/joaobenedetmachado/scrapit/issues" target="_blank">Issues</a>
   </div>
-  <p>Made with ☕ by <a href="https://github.com/joaobenedetmachado" target="_blank">João Benedet Machado</a></p>
 </footer>
 
 <script>
