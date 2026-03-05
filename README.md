@@ -576,12 +576,13 @@ json_file.save(result, "wikipedia")
 
 Contributions are welcome! Whether it's a bug fix, a new transform, a new storage backend, or just sharing a directive YAML that works for a site you scraped.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for a full guide on how to get started.
+See [CONTRIBUTING.md](CONTRIBUTING.md) here, for a full guide on how to get started.
 
 Quick ways to contribute:
 - **Share a directive** — open an issue with the "Share a Directive" template
 - **New transform** — add a function to `scraper/transforms/__init__.py` and open a PR
 - **Bug report** — use the bug report issue template
+
 
 ---
 
