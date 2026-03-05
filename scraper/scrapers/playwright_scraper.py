@@ -8,10 +8,13 @@ Directive options consumed here:
   cookies: []                  — list of cookie dicts: {name, value, domain}
   proxy: "http://..."          — proxy URL
   timeout: 30000               — page load timeout in ms (default 30000)
+  delay: 1.0                   — delay in seconds between requests (default 0, for rate limiting)
   wait_for: 'selector'         — wait for this selector before scraping
   screenshot: true             — save screenshot to output/<directive>_<ts>.png
 """
 
+import asyncio
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -22,6 +25,11 @@ from scraper.config import OUTPUT_DIR
 
 async def scrape(dados: dict, directive_name: str = "") -> dict:
     """Scrape a single URL using Playwright (headless Chromium)."""
+    # Apply rate limiting delay before making the request
+    delay = dados.get("delay", 0)
+    if delay > 0:
+        await asyncio.sleep(delay)
+    
     proxy_cfg = None
     if proxy := dados.get("proxy"):
         proxy_cfg = {"server": proxy}

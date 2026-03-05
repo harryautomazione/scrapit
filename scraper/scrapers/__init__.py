@@ -16,6 +16,7 @@ Extra directive keys handled here:
   validate: {...}     — per-field validation rules
 """
 
+import time
 import yaml
 from pathlib import Path
 
@@ -130,13 +131,17 @@ async def _dispatch(dados: dict, stats: ScrapeStats, directive_name: str) -> lis
     # ── Multi-site ────────────────────────────────────────────────────────────
     if has_sites:
         results = []
-        for url in dados["sites"]:
+        delay = dados.get("delay", 0)
+        for idx, url in enumerate(dados["sites"]):
             site_dados = {**dados, "site": url}
             site_dados.pop("sites", None)
             if use == "beautifulsoup":
                 results.append(bs4_scraper.scrape(site_dados))
             else:
                 results.append(await playwright_scraper.scrape(site_dados, directive_name))
+            # Apply delay between multi-site requests (skip after last)
+            if delay > 0 and idx < len(dados["sites"]) - 1:
+                time.sleep(delay)
         stats.urls_scraped = len(results)
         return results
 

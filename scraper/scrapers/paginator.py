@@ -34,6 +34,7 @@ def paginate(dados: dict) -> list[dict]:
         cookies=dados.get("cookies"),
         proxy=dados.get("proxy"),
         cache_ttl=cache_ttl,
+        delay=dados.get("delay", 0),
     )
 
     current_url = dados["site"]

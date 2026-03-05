@@ -14,6 +14,7 @@ Directive options consumed here:
   proxy: "http://..."          — proxy URL
   retries: 3                   — retry count on HTTP error (default 3)
   timeout: 15                  — request timeout in seconds (default 15)
+  delay: 1.0                   — delay in seconds between requests (default 0, for rate limiting)
   cache:
     ttl: 3600                  — cache TTL in seconds (0 = disabled)
 """
@@ -45,8 +46,28 @@ def fetch_html(
     cookies: dict | None = None,
     proxy: str | None = None,
     cache_ttl: int = 0,
+    delay: float = 0,
 ) -> str:
-    """Fetch URL and return HTML string. Caches if cache_ttl > 0."""
+    """Fetch URL and return HTML string. Caches if cache_ttl > 0.
+    
+    Args:
+        url: Target URL to fetch
+        retries: Number of retry attempts on failure (default 3)
+        backoff: Initial backoff time in seconds (default 2.0)
+        timeout: Request timeout in seconds (default 15)
+        headers: Additional HTTP headers to include
+        cookies: Cookie dictionary to send with request
+        proxy: Proxy URL (http or https)
+        cache_ttl: Cache TTL in seconds, 0 disables caching (default 0)
+        delay: Delay in seconds before making request (default 0, for rate limiting)
+    
+    Returns:
+        HTML content as string
+    """
+    # Apply rate limiting delay before making the request
+    if delay > 0:
+        time.sleep(delay)
+    
     cached = _cache.get(url, cache_ttl)
     if cached is not None:
         return cached
@@ -155,6 +176,7 @@ def scrape(dados: dict) -> dict:
         cookies=dados.get("cookies"),
         proxy=dados.get("proxy"),
         cache_ttl=cache_ttl,
+        delay=dados.get("delay", 0),
     )
     soup = BeautifulSoup(html, "html.parser")
     return parse_page(soup, dados["site"], dados["scrape"])

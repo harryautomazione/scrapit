@@ -40,6 +40,7 @@ class Spider:
             cookies=dados.get("cookies"),
             proxy=dados.get("proxy"),
             cache_ttl=cache_cfg.get("ttl", 0) if isinstance(cache_cfg, dict) else 0,
+            delay=dados.get("delay", 0),
         )
 
     def run(self) -> list[dict]:
