@@ -289,7 +289,8 @@ def _add_output_args(p):
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
-if __name__ == "__main__":
+def main():
+    """CLI entry point — called by the `scrapit` console script."""
     parser = argparse.ArgumentParser(
         prog="scrapit",
         description="Scrapit — YAML-driven modular web scraper framework",
@@ -336,3 +337,7 @@ if __name__ == "__main__":
         "cache": cmd_cache,
     }
     dispatch[args.command](args)
+
+
+if __name__ == "__main__":
+    main()
