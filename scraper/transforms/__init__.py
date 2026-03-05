@@ -15,9 +15,12 @@ Supported transforms (use in directive under `transform:`):
   prepend: "str"   — prepend string
   append: "str"    — append string
   remove_tags      — strip HTML tags from string
+  date             — parse date string to ISO format (YYYY-MM-DD)
+  parse_date       — parse date with custom format
 """
 
 import re
+from datetime import datetime
 from typing import Any
 
 _REGISTRY: dict[str, callable] = {}
@@ -218,6 +221,109 @@ def _template(value, pattern, ctx=None, **__):
         for k, v in ctx.items():
             result = result.replace(f"{{{k}}}", str(v) if v is not None else "")
     return result
+
+
+# Common date formats to try when parsing
+_COMMON_DATE_FORMATS = [
+    "%Y-%m-%d",
+    "%d/%m/%Y",
+    "%m/%d/%Y",
+    "%Y/%m/%d",
+    "%d-%m-%Y",
+    "%m-%d-%Y",
+    "%d.%m.%Y",
+    "%Y.%m.%d",
+    "%b %d, %Y",
+    "%B %d, %Y",
+    "%d %b %Y",
+    "%d %B %Y",
+    "%Y-%m-%d %H:%M:%S",
+    "%Y-%m-%dT%H:%M:%S",
+    "%Y-%m-%dT%H:%M:%SZ",
+    "%Y-%m-%dT%H:%M:%S.%fZ",
+]
+
+
+def _try_parse_date(value: str, formats: list[str] | None = None):
+    """Try to parse a date string using common formats."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    
+    value = value.strip()
+    formats_to_try = formats or _COMMON_DATE_FORMATS
+    
+    for fmt in formats_to_try:
+        try:
+            return datetime.strptime(value, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+@_t("date")
+def _date(value, _, **__):
+    """Convert date string to ISO format (YYYY-MM-DD).
+    
+    Tries common date formats automatically.
+    Returns None if parsing fails.
+    """
+    if value is None:
+        return None
+    
+    parsed = _try_parse_date(str(value))
+    if parsed:
+        return parsed.strftime("%Y-%m-%d")
+    return None
+
+
+@_t("parse_date")
+def _parse_date(value, args, **__):
+    """Parse date string with custom format and optionally output a specific format.
+    
+    Args (dict):
+        input_format: str - the format of the input date string
+        output_format: str - optional, format for output (default: ISO 8601 YYYY-MM-DD)
+        formats: list - optional, list of formats to try (overrides input_format)
+    
+    Example:
+        - parse_date: {input_format: "%d/%m/%Y"}
+        - parse_date: {input_format: "%B %d, %Y", output_format: "%Y-%m-%d"}
+    """
+    if value is None:
+        return None
+    
+    value = str(value).strip()
+    
+    # Determine formats to try
+    formats = None
+    output_fmt = "%Y-%m-%d"
+    input_fmt = None
+    
+    if isinstance(args, dict):
+        input_fmt = args.get("input_format")
+        output_fmt = args.get("output_format", "%Y-%m-%d")
+        formats = args.get("formats")
+    
+    # Try parsing
+    parsed = None
+    if formats and isinstance(formats, list):
+        parsed = _try_parse_date(value, formats)
+    elif formats and isinstance(formats, str):
+        try:
+            parsed = datetime.strptime(value, formats)
+        except ValueError:
+            pass
+    elif input_fmt:
+        try:
+            parsed = datetime.strptime(value, input_fmt)
+        except ValueError:
+            parsed = _try_parse_date(value)
+    else:
+        parsed = _try_parse_date(value)
+    
+    if parsed:
+        return parsed.strftime(output_fmt)
+    return None
 
 
 def apply(value: Any, transforms: list, ctx: dict | None = None) -> Any:

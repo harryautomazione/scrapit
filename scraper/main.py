@@ -22,6 +22,7 @@ from scraper.storage import json_file, mongo
 from scraper.storage import csv_file as csv_storage
 from scraper.storage import sqlite as sqlite_storage
 from scraper.storage import excel as excel_storage
+from scraper.storage import google_sheets as gs_storage
 from scraper.storage.diff import diff, load_previous
 from scraper.notifications import notify
 from scraper.logger import log
@@ -49,7 +50,8 @@ def _resolve(path_str: str) -> Path:
 
 # ── Storage dispatch ──────────────────────────────────────────────────────────
 
-def _save(result: dict | list, name: str, dest: str, *, output_dir: str | None = None):
+def _save(result: dict | list, name: str, dest: str, *, output_dir: str | None = None, 
+          spreadsheet_id: str = None, credentials_path: str = None):
     items = result if isinstance(result, list) else [result]
     for item in items:
         if dest == "mongo":
@@ -60,6 +62,8 @@ def _save(result: dict | list, name: str, dest: str, *, output_dir: str | None =
             sqlite_storage.save(item, name, output_dir=output_dir)
         elif dest == "excel":
             excel_storage.save(item, name, output_dir=output_dir)
+        elif dest == "sheets":
+            gs_storage.save(item, name, spreadsheet_id=spreadsheet_id, credentials_path=credentials_path)
         else:
             # json: save list or single dict
             break
@@ -78,6 +82,9 @@ def _save(result: dict | list, name: str, dest: str, *, output_dir: str | None =
     elif dest == "excel":
         base = Path(output_dir) if output_dir else _ROOT / "output"
         print(f"→ appended {len(items)} row(s) to: {base / f'{name}.xlsx'}")
+    elif dest == "sheets":
+        url = gs_storage.save_batch(items, name, spreadsheet_id=spreadsheet_id, credentials_path=credentials_path)
+        print(f"→ appended {len(items)} row(s) to Google Sheets: {url}")
 
 
 # ── Core run ──────────────────────────────────────────────────────────────────
@@ -90,6 +97,8 @@ def _run_one(
     preview: bool = False,
     detect_changes: bool = False,
     notify_config: dict | None = None,
+    spreadsheet_id: str = None,
+    credentials_path: str = None,
 ):
     import yaml
     name = directive_path.stem
@@ -122,7 +131,8 @@ def _run_one(
                 print("→ no changes detected.")
 
     if not preview:
-        _save(result, name, dest, output_dir=output_dir)
+        _save(result, name, dest, output_dir=output_dir, 
+              spreadsheet_id=spreadsheet_id, credentials_path=credentials_path)
         from scraper import hooks
         hooks.fire("on_save", result, dest)
 
@@ -133,7 +143,10 @@ def cmd_scrape(args):
     path = _resolve(args.directive)
     dest = _dest(args)
     output_dir = getattr(args, 'output_dir', None)
-    _run_one(path, dest, output_dir=output_dir, preview=args.preview, detect_changes=args.diff)
+    spreadsheet_id = getattr(args, 'sheets_id', None)
+    credentials_path = getattr(args, 'sheets_credentials', None)
+    _run_one(path, dest, output_dir=output_dir, preview=args.preview, detect_changes=args.diff,
+             spreadsheet_id=spreadsheet_id, credentials_path=credentials_path)
 
 
 def cmd_batch(args):
@@ -149,13 +162,16 @@ def cmd_batch(args):
 
     dest = _dest(args)
     output_dir = getattr(args, 'output_dir', None)
+    spreadsheet_id = getattr(args, 'sheets_id', None)
+    credentials_path = getattr(args, 'sheets_credentials', None)
     ok, failed = 0, 0
     for y in yamls:
         print(f"\n{'─' * 50}")
         print(f"  {y.name}")
         print(f"{'─' * 50}")
         try:
-            _run_one(y, dest, output_dir=output_dir, preview=args.preview, detect_changes=args.diff)
+            _run_one(y, dest, output_dir=output_dir, preview=args.preview, detect_changes=args.diff,
+                     spreadsheet_id=spreadsheet_id, credentials_path=credentials_path)
             ok += 1
         except Exception as e:
             log(f"batch: error in {y.name}: {e}", "error")
@@ -251,6 +267,8 @@ def _dest(args) -> str:
         return "sqlite"
     if getattr(args, "excel", False):
         return "excel"
+    if getattr(args, "sheets", False):
+        return "sheets"
     return "json"
 
 
@@ -261,7 +279,10 @@ def _add_output_args(p):
     group.add_argument("--csv", action="store_true", help="Append to output/<name>.csv")
     group.add_argument("--sqlite", action="store_true", help="Save to output/scrapit.db")
     group.add_argument("--excel", action="store_true", help="Append to output/<name>.xlsx")
+    group.add_argument("--sheets", action="store_true", help="Append to Google Sheets")
     p.add_argument("--output-dir", help="Custom output directory (overrides default 'output/')")
+    p.add_argument("--sheets-id", help="Google Sheets spreadsheet ID (required for --sheets)")
+    p.add_argument("--sheets-credentials", help="Path to Google credentials JSON file (required for --sheets)")
     p.add_argument("--preview", action="store_true", help="Print only, do not save")
     p.add_argument("--diff", action="store_true", help="Diff against previous JSON output")
 
