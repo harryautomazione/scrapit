@@ -168,6 +168,7 @@ def cmd_batch(args):
     output_dir = getattr(args, 'output_dir', None)
     spreadsheet_id = getattr(args, 'sheets_id', None)
     credentials_path = getattr(args, 'sheets_credentials', None)
+    quiet = getattr(args, 'quiet', False)
     ok, failed = 0, 0
     for y in yamls:
         print(f"\n{'─' * 50}")
@@ -182,7 +183,8 @@ def cmd_batch(args):
             print(f"  ✗ ERROR: {e}", file=sys.stderr)
             failed += 1
 
-    print(f"\nbatch done — {ok} succeeded, {failed} failed.")
+    if not quiet:
+        print(f"\nbatch done — {ok} succeeded, {failed} failed.")
 
 
 def cmd_list(args):
@@ -365,7 +367,7 @@ scrape:{scrape_block}
 # ── Optional: notifications ───────────────────────────────────────────────────
 # notify:
 #   slack:
-#     webhook_url: 'https://hooks.slack.com/...'
+#     webhook_url: 'https://hooks.slack.com/services/...'
 """
 
     out_path = _DIRECTIVES_DIR / f"{name}.yaml"
@@ -433,6 +435,7 @@ def _add_output_args(p):
     p.add_argument("--sheets-credentials", help="Path to Google credentials JSON file (required for --sheets)")
     p.add_argument("--preview", action="store_true", help="Print only, do not save")
     p.add_argument("--diff", action="store_true", help="Diff against previous JSON output")
+    p.add_argument("--quiet", "-q", action="store_true", help="Suppress run summary output")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
