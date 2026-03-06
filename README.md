@@ -618,6 +618,10 @@ Quick ways to contribute:
   <img src="https://contrib.rocks/image?repo=joaobenedetmachado/scrapit" />
 </a>
 
+### Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=joaobenedetmachado/scrapit&type=Date)](https://star-history.com/#joaobenedetmachado/scrapit&Date)
+
 ---
 
 ## Requirements
