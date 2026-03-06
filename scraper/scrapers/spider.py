@@ -14,15 +14,19 @@ The spider starts at `site`, discovers links matching `selector`,
 then scrapes each discovered URL with the same `scrape` spec.
 """
 
+import json
+from pathlib import Path
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 
 from scraper.scrapers.bs4_scraper import fetch_html, parse_page
 from scraper.logger import log
 
+_CHECKPOINTS_DIR = Path("output") / ".checkpoints"
+
 
 class Spider:
-    def __init__(self, dados: dict):
+    def __init__(self, dados: dict, resume: bool = False):
         self.dados = dados
         self.follow = dados.get("follow", {})
         self.max = self.follow.get("max", 50)
@@ -31,6 +35,7 @@ class Spider:
         self.selector = self.follow.get("selector", "a")
         self.attr = self.follow.get("attr", "href")
         self.base_domain = urlparse(dados["site"]).netloc
+        self._resume = resume
 
         cache_cfg = dados.get("cache", {})
         self._fetch_kw = dict(
@@ -43,25 +48,62 @@ class Spider:
             delay=dados.get("delay", 0),
         )
 
-    def run(self) -> list[dict]:
+    def _checkpoint_path(self, directive_name: str) -> Path:
+        _CHECKPOINTS_DIR.mkdir(parents=True, exist_ok=True)
+        return _CHECKPOINTS_DIR / f"{directive_name}.json"
+
+    def _load_checkpoint(self, directive_name: str) -> set[str]:
+        cp_file = self._checkpoint_path(directive_name)
+        if cp_file.exists():
+            try:
+                data = json.loads(cp_file.read_text())
+                return set(data.get("completed", []))
+            except Exception:
+                pass
+        return set()
+
+    def _save_checkpoint(self, directive_name: str, discovered: list[str], completed: set[str]):
+        cp_file = self._checkpoint_path(directive_name)
+        cp_file.write_text(json.dumps(
+            {"directive": directive_name, "discovered": discovered, "completed": list(completed)},
+            indent=2,
+        ))
+
+    def run(self, directive_name: str = "spider") -> list[dict]:
         """Discover and scrape all linked pages. Returns list of result dicts."""
+        completed: set[str] = set()
+        if self._resume:
+            completed = self._load_checkpoint(directive_name)
+            if completed:
+                log(f"spider: resuming — skipping {len(completed)} already-scraped URLs")
+
         index_html = fetch_html(self.dados["site"], **self._fetch_kw)
         index_soup = BeautifulSoup(index_html, "html.parser")
 
         discovered = self._discover(index_soup, self.dados["site"])
         log(f"spider: found {len(discovered)} URLs from {self.dados['site']}")
+        self._save_checkpoint(directive_name, discovered, completed)
 
         results = []
         for url in discovered[: self.max]:
+            if url in completed:
+                continue
             try:
                 html = fetch_html(url, **self._fetch_kw)
                 soup = BeautifulSoup(html, "html.parser")
                 result = parse_page(soup, url, self.dados["scrape"], raw_html=html)
                 result["_source"] = self.dados["site"]
                 results.append(result)
+                completed.add(url)
+                self._save_checkpoint(directive_name, discovered, completed)
                 log(f"spider: scraped {url}")
             except Exception as e:
                 log(f"spider: error scraping {url}: {e}", "warning")
+
+        # Clear checkpoint on successful completion
+        cp = self._checkpoint_path(directive_name)
+        if cp.exists():
+            cp.unlink()
 
         return results
 

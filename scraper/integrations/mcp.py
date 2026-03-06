@@ -249,6 +249,76 @@ def create_server():
 
         return json.dumps(results, indent=2, default=str)
 
+    @mcp.tool()
+    def generate_directive_tool(url: str, fields: str | None = None, run: bool = False) -> str:
+        """
+        Generate a Scrapit YAML directive for any URL using Claude AI, then optionally run it.
+
+        Use this when you want to scrape a new site that has no existing directive.
+        Claude analyzes the page content and automatically determines the best CSS selectors.
+
+        Args:
+            url: The URL to generate a scraping directive for.
+            fields: Optional comma-separated list of fields to extract.
+                Example: "title,price,rating,description"
+                If omitted, Claude picks the 4–6 most useful fields automatically.
+            run: If true, immediately scrape the URL with the generated directive and
+                 return both the YAML and the scraped data. Default: false.
+
+        Returns:
+            JSON with "yaml" (the generated directive string) and optionally "data" (scraped results).
+        """
+        try:
+            import anthropic as _anthropic
+        except ImportError:
+            return json.dumps({"error": "anthropic package required: pip install anthropic"})
+
+        try:
+            page_text = scrape_url(url)[:4000]
+        except Exception as e:
+            return json.dumps({"error": f"Failed to fetch page: {e}"})
+
+        fields_hint = f"Extract these fields: {fields}." if fields else \
+            "Identify the 4–6 most useful fields to extract."
+
+        prompt = (
+            f"Generate a valid Scrapit YAML directive for this URL.\n\n"
+            f"URL: {url}\n{fields_hint}\n\nPage content:\n{page_text}\n\n"
+            f"Output ONLY valid Scrapit YAML — no markdown fences, no explanation.\n"
+            f"site: {url}\nuse: beautifulsoup\n\nscrape:\n  field:\n    - 'css-selector'\n    - attr: text"
+        )
+
+        try:
+            client = _anthropic.Anthropic()
+            resp = client.messages.create(
+                model="claude-opus-4-6",
+                max_tokens=1024,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            yaml_content = resp.content[0].text.strip()
+            if yaml_content.startswith("```"):
+                lines = yaml_content.splitlines()
+                yaml_content = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+        except Exception as e:
+            return json.dumps({"error": f"Claude API error: {e}"})
+
+        result: dict = {"yaml": yaml_content}
+
+        if run:
+            import tempfile
+            try:
+                import yaml as _yaml
+                _yaml.safe_load(yaml_content)  # validate
+                with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+                    f.write(yaml_content)
+                    tmp_path = f.name
+                data = scrape_directive(tmp_path)
+                result["data"] = data
+            except Exception as e:
+                result["run_error"] = str(e)
+
+        return json.dumps(result, indent=2, default=str)
+
     return mcp
 
 

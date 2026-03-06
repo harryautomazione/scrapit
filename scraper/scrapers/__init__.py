@@ -66,7 +66,7 @@ def _validate_directive(dados: dict, path: str):
         )
 
 
-async def grab_elements_by_directive(path: str) -> dict | list[dict]:
+async def grab_elements_by_directive(path: str, resume: bool = False) -> dict | list[dict]:
     """
     Main entry point. Returns a single dict for simple scrapes,
     or a list of dicts for paginated / spider / multi-site scrapes.
@@ -82,7 +82,7 @@ async def grab_elements_by_directive(path: str) -> dict | list[dict]:
     hooks.fire("before_scrape", dados)
 
     try:
-        results = await _dispatch(dados, stats, directive_name)
+        results = await _dispatch(dados, stats, directive_name, resume=resume)
     except Exception as e:
         stats.errors.append(str(e))
         hooks.fire("on_error", e, dados)
@@ -117,7 +117,7 @@ async def grab_elements_by_directive(path: str) -> dict | list[dict]:
     return results[0] if len(results) == 1 else results
 
 
-async def _dispatch(dados: dict, stats: ScrapeStats, directive_name: str) -> list[dict]:
+async def _dispatch(dados: dict, stats: ScrapeStats, directive_name: str, resume: bool = False) -> list[dict]:
     from scraper.scrapers import bs4_scraper, playwright_scraper
     from scraper.scrapers.paginator import paginate
     from scraper.scrapers.spider import Spider
@@ -149,8 +149,8 @@ async def _dispatch(dados: dict, stats: ScrapeStats, directive_name: str) -> lis
     if mode == "spider" or has_follow:
         if use != "beautifulsoup":
             raise ValueError("Spider mode only supports 'beautifulsoup' backend.")
-        spider = Spider(dados)
-        results = spider.run()
+        spider = Spider(dados, resume=resume)
+        results = spider.run(directive_name=directive_name)
         stats.urls_scraped = len(results)
         return results
 

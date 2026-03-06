@@ -4,6 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Scraped with Scrapit](https://img.shields.io/badge/scraped_with-scrapit-58a6ff)](https://github.com/joaobenedetmachado/scrapit)
 
 A modular, YAML-driven web scraper framework. Describe any scraping target in a config file — Scrapit handles fetching, parsing, transforming, validating, and storing the data.
 
@@ -161,6 +162,26 @@ python -m scraper.main list [--dir path/to/folder]
 
 Shows site, backend, fields, transforms, validation rules, and cache config.
 
+### `suggest-selectors` — ask Claude for CSS selectors
+
+```bash
+scrapit suggest-selectors https://books.toscrape.com --fields "title,price,rating"
+```
+
+Fetches the page and asks Claude to suggest the best CSS selectors for each field. Outputs a ready-to-paste `scrape:` block. Requires `pip install anthropic`.
+
+---
+
+### `share` — share a directive with the community
+
+```bash
+scrapit share wikipedia
+```
+
+Creates a GitHub issue in the Scrapit repo with your directive YAML, making it available to everyone. Requires the `gh` CLI authenticated.
+
+---
+
 ### `ai-init` — generate a directive with Claude
 
 ```bash
@@ -196,6 +217,11 @@ python -m scraper.main cache invalidate --url https://example.com
 ---
 
 ## Writing Directives
+
+> **VS Code autocomplete:** add this line to the top of any directive YAML for inline docs and validation:
+> ```yaml
+> # yaml-language-server: $schema=https://raw.githubusercontent.com/joaobenedetmachado/scrapit/main/scrapit.schema.json
+> ```
 
 ### Minimal directive
 

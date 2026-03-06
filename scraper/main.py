@@ -104,11 +104,12 @@ def _run_one(
     notify_config: dict | None = None,
     spreadsheet_id: str = None,
     credentials_path: str = None,
+    resume: bool = False,
 ):
     import yaml
     name = directive_path.stem
 
-    result = asyncio.run(grab_elements_by_directive(str(directive_path)))
+    result = asyncio.run(grab_elements_by_directive(str(directive_path), resume=resume))
 
     # Pretty-print to console
     print(json.dumps(result, indent=2, default=str))
@@ -149,10 +150,12 @@ def cmd_scrape(args):
     dest = _dest(args)
     output_dir = getattr(args, 'output_dir', None)
     compact = getattr(args, 'format', 'pretty') == 'compact'
+    resume = getattr(args, 'resume', False)
     spreadsheet_id = getattr(args, 'sheets_id', None)
     credentials_path = getattr(args, 'sheets_credentials', None)
     _run_one(path, dest, output_dir=output_dir, compact=compact, preview=args.preview,
-             detect_changes=args.diff, spreadsheet_id=spreadsheet_id, credentials_path=credentials_path)
+             detect_changes=args.diff, resume=resume,
+             spreadsheet_id=spreadsheet_id, credentials_path=credentials_path)
 
 
 def cmd_batch(args):
@@ -169,6 +172,7 @@ def cmd_batch(args):
     dest = _dest(args)
     output_dir = getattr(args, 'output_dir', None)
     compact = getattr(args, 'format', 'pretty') == 'compact'
+    resume = getattr(args, 'resume', False)
     spreadsheet_id = getattr(args, 'sheets_id', None)
     credentials_path = getattr(args, 'sheets_credentials', None)
     quiet = getattr(args, 'quiet', False)
@@ -179,7 +183,8 @@ def cmd_batch(args):
         print(f"{'─' * 50}")
         try:
             _run_one(y, dest, output_dir=output_dir, compact=compact, preview=args.preview,
-                     detect_changes=args.diff, spreadsheet_id=spreadsheet_id, credentials_path=credentials_path)
+                     detect_changes=args.diff, resume=resume,
+                     spreadsheet_id=spreadsheet_id, credentials_path=credentials_path)
             ok += 1
         except Exception as e:
             log(f"batch: error in {y.name}: {e}", "error")
@@ -426,6 +431,89 @@ def cmd_doctor(_args):
         print("Run: pip install -r requirements.txt")
 
 
+def cmd_suggest_selectors(args):
+    try:
+        import anthropic as _anthropic
+    except ImportError:
+        print("error: anthropic package required: pip install anthropic", file=sys.stderr)
+        sys.exit(1)
+
+    url = args.url
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    fields = [f.strip() for f in args.fields.split(",") if f.strip()]
+
+    print(f"→ fetching {url}...")
+    from scraper.integrations import scrape_url
+    try:
+        page_text = scrape_url(url)[:4000]
+    except Exception as e:
+        print(f"error fetching page: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    prompt = f"""You are a web scraping expert. For the URL below, suggest the best CSS selectors for the given fields.
+
+URL: {url}
+Fields to extract: {', '.join(fields)}
+
+Page content:
+{page_text}
+
+Output ONLY a valid Scrapit YAML scrape block — no explanation, no markdown fences:
+
+scrape:
+  field_name:
+    - 'css-selector'
+    - attr: text"""
+
+    print("→ asking Claude for CSS selectors...")
+    client = _anthropic.Anthropic()
+    resp = client.messages.create(
+        model="claude-opus-4-6",
+        max_tokens=512,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    yaml_block = resp.content[0].text.strip()
+    if yaml_block.startswith("```"):
+        lines = yaml_block.splitlines()
+        yaml_block = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+    print(f"\n{yaml_block}")
+
+
+def cmd_share(args):
+    path = _resolve(args.directive)
+    content = path.read_text()
+    name = path.stem
+
+    title = f"[directive] {name}"
+    body = (
+        f"## Sharing directive: `{name}`\n\n"
+        f"```yaml\n{content}\n```\n\n"
+        f"**Usage:**\n```bash\nscrapit scrape {name} --preview\n```\n\n"
+        f"> Submitted via `scrapit share`"
+    )
+
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["gh", "issue", "create",
+             "--repo", "joaobenedetmachado/scrapit",
+             "--title", title,
+             "--body", body,
+             "--label", "directive"],
+            capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode == 0:
+            print(f"→ Issue created: {result.stdout.strip()}")
+            return
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+    print("→ Could not create GitHub issue automatically.")
+    print("  Open a new issue at: https://github.com/joaobenedetmachado/scrapit/issues/new")
+    print(f"\n```yaml\n{content}\n```")
+
+
 def cmd_ai_init(args):
     try:
         import anthropic as _anthropic
@@ -549,6 +637,7 @@ def _add_output_args(p):
     p.add_argument("--sheets-credentials", help="Path to Google credentials JSON file (required for --sheets)")
     p.add_argument("--preview", action="store_true", help="Print only, do not save")
     p.add_argument("--diff", action="store_true", help="Diff against previous JSON output")
+    p.add_argument("--resume", action="store_true", help="Resume interrupted spider/paginated scrape from checkpoint")
     p.add_argument("--quiet", "-q", action="store_true", help="Suppress run summary output")
 
 
@@ -595,6 +684,15 @@ def main():
     p_cache.add_argument("action", choices=["stats", "clear", "invalidate"])
     p_cache.add_argument("--url", help="URL to invalidate (for 'invalidate' action)")
 
+    # ── suggest-selectors ─────────────────────────────────────────────────────
+    p_suggest = sub.add_parser("suggest-selectors", help="Ask Claude to suggest CSS selectors for a URL")
+    p_suggest.add_argument("url", help="URL to analyze")
+    p_suggest.add_argument("--fields", required=True, help="Comma-separated fields to extract (e.g. title,price,rating)")
+
+    # ── share ─────────────────────────────────────────────────────────────────
+    p_share = sub.add_parser("share", help="Share a directive by opening a GitHub issue")
+    p_share.add_argument("directive", help="Directive name or path to share")
+
     # ── ai-init ───────────────────────────────────────────────────────────────
     p_ai = sub.add_parser("ai-init", help="Generate a directive from a URL using Claude")
     p_ai.add_argument("url", help="URL to generate a directive for")
@@ -610,6 +708,8 @@ def main():
     dispatch = {
         "init": cmd_init,
         "ai-init": cmd_ai_init,
+        "suggest-selectors": cmd_suggest_selectors,
+        "share": cmd_share,
         "scrape": cmd_scrape,
         "batch": cmd_batch,
         "list": cmd_list,

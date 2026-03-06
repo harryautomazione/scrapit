@@ -1,0 +1,54 @@
+# Scrapit scheduled scraping — GitHub Action template
+#
+# Copy this file to .github/workflows/scrapit-schedule.yml in your data repo.
+# Runs a Scrapit directive on a schedule and commits the output automatically.
+#
+# Setup:
+#   1. Copy this repo's directives folder (or write your own YAML)
+#   2. Set SCRAPIT_REPO secret if using a private Scrapit fork
+#   3. Adjust the schedule and directive name below
+
+name: Scrapit scheduled scrape
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # every 6 hours — adjust as needed
+  workflow_dispatch:          # allow manual trigger from GitHub UI
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout data repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Scrapit
+        run: pip install scrapit-scraper
+
+      # ── OR install from source (if you have custom directives in this repo) ──
+      # - name: Clone Scrapit
+      #   run: git clone https://github.com/joaobenedetmachado/scrapit scrapit-src
+      # - name: Install Scrapit from source
+      #   run: pip install -r scrapit-src/requirements.txt
+
+      - name: Run scrape
+        run: |
+          # Replace 'wikipedia' with your directive name
+          scrapit scrape wikipedia --json --output-dir output/
+        env:
+          # Optional: add secrets for MongoDB, webhooks, etc.
+          SCRAPIT_WEBHOOK_URL: ${{ secrets.SCRAPIT_WEBHOOK_URL }}
+
+      - name: Commit and push results
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add output/
+          git diff --cached --quiet || git commit -m "chore: scrapit run $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push

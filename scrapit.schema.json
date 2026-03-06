@@ -1,0 +1,196 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/joaobenedetmachado/scrapit/raw/main/scrapit.schema.json",
+  "title": "Scrapit Directive",
+  "description": "YAML configuration for a Scrapit web scraping directive",
+  "type": "object",
+  "required": ["use", "scrape"],
+  "oneOf": [
+    {"required": ["site"]},
+    {"required": ["sites"]}
+  ],
+  "properties": {
+    "site": {
+      "type": "string",
+      "format": "uri",
+      "description": "Target URL to scrape"
+    },
+    "sites": {
+      "type": "array",
+      "items": {"type": "string", "format": "uri"},
+      "description": "Multiple URLs to scrape with the same spec"
+    },
+    "use": {
+      "type": "string",
+      "enum": ["beautifulsoup", "playwright"],
+      "description": "Scraping backend to use"
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["single", "spider"],
+      "default": "single",
+      "description": "Scraping mode"
+    },
+    "retries": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 3,
+      "description": "Number of HTTP retries with exponential backoff"
+    },
+    "timeout": {
+      "type": "number",
+      "default": 15,
+      "description": "Request timeout in seconds (bs4) or milliseconds (playwright)"
+    },
+    "delay": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Delay in seconds between requests (rate limiting)"
+    },
+    "proxy": {
+      "type": "string",
+      "description": "Proxy URL. Supports http/https/socks5 and ${ENV_VAR} interpolation"
+    },
+    "respect_robots": {
+      "type": "boolean",
+      "default": false,
+      "description": "Check robots.txt before scraping. Raises PermissionError if disallowed."
+    },
+    "headers": {
+      "type": "object",
+      "additionalProperties": {"type": "string"},
+      "description": "Extra HTTP headers merged with defaults"
+    },
+    "cookies": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": {"type": "string"}},
+        {"type": "array", "items": {"type": "object"}}
+      ],
+      "description": "Cookies to send (dict for bs4, list of {name,value,domain} for playwright)"
+    },
+    "wait_for": {
+      "type": "string",
+      "description": "CSS selector to wait for before parsing (Playwright only)"
+    },
+    "screenshot": {
+      "type": "boolean",
+      "default": false,
+      "description": "Save full-page screenshot to output/ (Playwright only)"
+    },
+    "cache": {
+      "type": "object",
+      "properties": {
+        "ttl": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Cache TTL in seconds. 0 = disabled."
+        }
+      },
+      "additionalProperties": false
+    },
+    "scrape": {
+      "type": "object",
+      "description": "Field extraction spec. Keys are field names, values are selector lists.",
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "oneOf": [
+            {"type": "string", "description": "CSS selector (or xpath: prefix for XPath)"},
+            {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Fallback CSS selectors — first match wins"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "attr": {
+                  "type": "string",
+                  "description": "'text' for inner text, or any HTML attribute (href, src, …)"
+                },
+                "all": {
+                  "type": "boolean",
+                  "description": "Return all matches as a list instead of just the first"
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        }
+      }
+    },
+    "paginate": {
+      "type": "object",
+      "description": "Follow 'next page' links automatically (bs4 only)",
+      "properties": {
+        "selector": {"type": "string", "description": "CSS selector for the next-page link"},
+        "attr": {"type": "string", "default": "href"},
+        "max_pages": {"type": "integer", "minimum": 1, "default": 10}
+      },
+      "required": ["selector"],
+      "additionalProperties": false
+    },
+    "follow": {
+      "type": "object",
+      "description": "Spider mode — discover and scrape linked pages (bs4 only)",
+      "properties": {
+        "selector": {"type": "string", "description": "CSS selector for links to follow"},
+        "attr": {"type": "string", "default": "href"},
+        "max": {"type": "integer", "minimum": 1, "default": 50},
+        "same_domain": {"type": "boolean", "default": true},
+        "depth": {"type": "integer", "minimum": 1, "default": 1}
+      },
+      "required": ["selector"],
+      "additionalProperties": false
+    },
+    "transform": {
+      "type": "object",
+      "description": "Per-field transform pipelines applied after scraping",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": [
+                "strip", "lower", "upper", "title", "capitalize", "sentence_case",
+                "int", "float", "count", "first", "last", "remove_tags",
+                "normalize_whitespace", "slugify", "date"
+              ]
+            },
+            {"type": "object"}
+          ]
+        }
+      }
+    },
+    "validate": {
+      "type": "object",
+      "description": "Per-field validation rules",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "required": {"type": "boolean"},
+          "type": {"type": "string", "enum": ["str", "int", "float", "list", "bool"]},
+          "not_empty": {"type": "boolean"},
+          "min": {"type": "number"},
+          "max": {"type": "number"},
+          "min_length": {"type": "integer", "minimum": 0},
+          "max_length": {"type": "integer", "minimum": 0},
+          "pattern": {"type": "string"},
+          "in": {"type": "array"},
+          "not_in": {"type": "array"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "notify": {
+      "type": "object",
+      "description": "Webhook notification when --diff detects changes",
+      "properties": {
+        "webhook": {"type": "string", "format": "uri"}
+      }
+    }
+  },
+  "additionalProperties": false
+}
