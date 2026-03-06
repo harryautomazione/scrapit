@@ -379,7 +379,7 @@ scrape:{scrape_block}
 
     out_path.write_text(yaml_content)
     print(f"\n→ Created {out_path.relative_to(_ROOT)}")
-    print(f"\nNext steps:")
+    print("\nNext steps:")
     print(f"  1. Open {out_path.relative_to(_ROOT)} and replace each 'FIXME' with a real CSS selector.")
     print(f"  2. Run: python -m scraper.main scrape {name} --preview")
     print(f"  3. Save results: python -m scraper.main scrape {name} --json")
