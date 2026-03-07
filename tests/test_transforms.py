@@ -411,12 +411,48 @@ class TestAdvancedTransforms:
     def test_slugify_non_string(self):
         assert apply(123, ["slugify"]) == 123
 
+    def test_slugify_consecutive_hyphens(self):
+        """Consecutive hyphens/spaces collapse to a single hyphen."""
+        assert apply("hello   world", ["slugify"]) == "hello-world"
+        assert apply("foo--bar", ["slugify"]) == "foo-bar"
+
+    def test_slugify_leading_trailing_hyphens(self):
+        """Leading and trailing hyphens are stripped."""
+        assert apply("-hello-", ["slugify"]) == "hello"
+        assert apply("  hello  ", ["slugify"]) == "hello"
+
+    def test_slugify_only_special_chars(self):
+        """String with only special characters produces empty string."""
+        result = apply("!@#$%", ["slugify"])
+        assert result == ""
+
+    def test_slugify_mixed_case_and_numbers(self):
+        assert apply("My Article 2024", ["slugify"]) == "my-article-2024"
+
     def test_normalize_whitespace(self):
         assert apply("hello   world", ["normalize_whitespace"]) == "hello world"
         assert apply("  a  b  c  ", ["normalize_whitespace"]) == "a b c"
 
     def test_normalize_whitespace_non_string(self):
         assert apply(42, ["normalize_whitespace"]) == 42
+
+    def test_normalize_whitespace_unicode(self):
+        """Unicode spaces and accented characters are handled correctly."""
+        assert apply("café  au  lait", ["normalize_whitespace"]) == "café au lait"
+        assert apply("  héllo  wörld  ", ["normalize_whitespace"]) == "héllo wörld"
+
+    def test_truncate_unicode(self):
+        """Truncate works correctly with multi-byte unicode characters."""
+        result = apply("héllo wörld foo", [{"truncate": 11}])
+        assert result.endswith("...")
+        assert len(result.replace("...", "")) <= 11
+
+    def test_truncate_emoji(self):
+        """Truncate handles emoji characters (multi-codepoint) safely."""
+        s = "hello 🌍 world extra"
+        result = apply(s, [{"truncate": 10}])
+        assert result.endswith("...")
+        assert len(result.replace("...", "")) <= 10
 
     def test_date_iso(self):
         assert apply("2024-03-05", ["date"]) == "2024-03-05"
@@ -429,6 +465,73 @@ class TestAdvancedTransforms:
 
     def test_date_invalid(self):
         assert apply("not a date", ["date"]) is None
+
+
+class TestBooleanTransform:
+    """Test boolean casting transform."""
+
+    def test_truthy_strings(self):
+        for s in ("true", "True", "TRUE", "yes", "Yes", "1", "on", "ON"):
+            assert apply(s, ["boolean"]) is True, f"expected True for {s!r}"
+
+    def test_falsy_strings(self):
+        for s in ("false", "False", "FALSE", "no", "No", "0", "off", "OFF"):
+            assert apply(s, ["boolean"]) is False, f"expected False for {s!r}"
+
+    def test_passthrough_unknown(self):
+        assert apply("maybe", ["boolean"]) == "maybe"
+        assert apply("", ["boolean"]) == ""
+
+    def test_passthrough_bool(self):
+        assert apply(True, ["boolean"]) is True
+        assert apply(False, ["boolean"]) is False
+
+    def test_passthrough_non_string(self):
+        assert apply(42, ["boolean"]) == 42
+
+
+class TestPadTransform:
+    """Test pad (fixed-width string) transform."""
+
+    def test_pad_right_default(self):
+        assert apply("hi", [{"pad": {"width": 5}}]) == "hi   "
+
+    def test_pad_left(self):
+        assert apply("42", [{"pad": {"width": 5, "char": "0", "side": "left"}}]) == "00042"
+
+    def test_pad_right_explicit(self):
+        assert apply("hi", [{"pad": {"width": 5, "char": "-", "side": "right"}}]) == "hi---"
+
+    def test_pad_no_op_if_long_enough(self):
+        assert apply("hello", [{"pad": {"width": 3}}]) == "hello"
+
+    def test_pad_non_string(self):
+        assert apply(42, [{"pad": {"width": 5}}]) == 42
+
+
+class TestHashTransform:
+    """Test hash transform."""
+
+    def test_hash_md5(self):
+        import hashlib
+        expected = hashlib.md5(b"hello").hexdigest()
+        assert apply("hello", [{"hash": "md5"}]) == expected
+
+    def test_hash_sha256(self):
+        import hashlib
+        expected = hashlib.sha256(b"hello").hexdigest()
+        assert apply("hello", [{"hash": "sha256"}]) == expected
+
+    def test_hash_sha1(self):
+        import hashlib
+        expected = hashlib.sha1(b"test").hexdigest()
+        assert apply("test", [{"hash": "sha1"}]) == expected
+
+    def test_hash_unknown_algorithm(self):
+        assert apply("hello", [{"hash": "crc32"}]) == "hello"
+
+    def test_hash_non_string(self):
+        assert apply(42, [{"hash": "md5"}]) == 42
 
 
 class TestComplexScenarios:

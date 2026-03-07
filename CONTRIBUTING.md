@@ -97,6 +97,12 @@ The best contributions are real-world directives that work! Place your YAML in `
 
 See `scraper/directives/books.yaml` for a good example.
 
+You can lint a directive before submitting:
+
+```bash
+scrapit validate my-directive.yaml
+```
+
 ---
 
 ## Code Style

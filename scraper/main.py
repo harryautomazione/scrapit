@@ -105,11 +105,12 @@ def _run_one(
     spreadsheet_id: str = None,
     credentials_path: str = None,
     resume: bool = False,
+    timeout: int | None = None,
 ):
     import yaml
     name = directive_path.stem
 
-    result = asyncio.run(grab_elements_by_directive(str(directive_path), resume=resume))
+    result = asyncio.run(grab_elements_by_directive(str(directive_path), resume=resume, timeout=timeout))
 
     # Pretty-print to console
     print(json.dumps(result, indent=2, default=str))
@@ -151,10 +152,11 @@ def cmd_scrape(args):
     output_dir = getattr(args, 'output_dir', None)
     compact = getattr(args, 'format', 'pretty') == 'compact'
     resume = getattr(args, 'resume', False)
+    timeout = getattr(args, 'timeout', None)
     spreadsheet_id = getattr(args, 'sheets_id', None)
     credentials_path = getattr(args, 'sheets_credentials', None)
     _run_one(path, dest, output_dir=output_dir, compact=compact, preview=args.preview,
-             detect_changes=args.diff, resume=resume,
+             detect_changes=args.diff, resume=resume, timeout=timeout,
              spreadsheet_id=spreadsheet_id, credentials_path=credentials_path)
 
 
@@ -393,6 +395,55 @@ scrape:{scrape_block}
     print(f"  3. Save results: python -m scraper.main scrape {name} --json")
 
 
+def cmd_validate(args):
+    """Lint a directive YAML for missing required fields, unknown transforms, etc."""
+    import yaml as _yaml
+    from scraper.transforms import _REGISTRY as _transforms
+
+    path = _resolve(args.directive)
+    try:
+        with open(path) as f:
+            directive = _yaml.safe_load(f)
+    except Exception as e:
+        print(f"error: could not parse YAML: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    errors = []
+    warnings = []
+
+    if not directive.get("site") and not directive.get("sites"):
+        errors.append("missing required field: 'site' or 'sites'")
+    if not directive.get("scrape"):
+        errors.append("missing required field: 'scrape' (no fields defined)")
+
+    use = directive.get("use", "bs4")
+    if use not in ("bs4", "playwright"):
+        warnings.append(f"unknown backend 'use: {use}' — expected bs4 or playwright")
+
+    for field, transforms in (directive.get("transform") or {}).items():
+        if not isinstance(transforms, list):
+            continue
+        for t in transforms:
+            name = t if isinstance(t, str) else (list(t.keys())[0] if isinstance(t, dict) else None)
+            if name and name not in _transforms:
+                warnings.append(f"transform '{name}' on field '{field}' is not registered")
+
+    paginate = directive.get("paginate", {})
+    if paginate and not paginate.get("next"):
+        warnings.append("'paginate' block is missing 'next' selector")
+
+    print(f"validating: {path.name}\n")
+    if not errors and not warnings:
+        print("  ✓ directive looks good")
+    for e in errors:
+        print(f"  ✗ error: {e}")
+    for w in warnings:
+        print(f"  ⚠ warning: {w}")
+
+    if errors:
+        sys.exit(1)
+
+
 def cmd_doctor(_args):
     print("scrapit doctor — checking environment\n")
     checks = [
@@ -413,16 +464,34 @@ def cmd_doctor(_args):
         ("google-api-python-client",  "googleapiclient",  False),
     ]
     all_ok = True
+    playwright_installed = False
     for pkg, module, required in checks:
         try:
             __import__(module)
             status = "✓"
+            if module == "playwright":
+                playwright_installed = True
         except ImportError:
             status = "✗" if required else "–"
             if required:
                 all_ok = False
         label = "(required)" if required else "(optional)"
         print(f"  {status}  {pkg:<30} {label}")
+
+    # Check Playwright browser installation
+    if playwright_installed:
+        try:
+            import os
+            from playwright.sync_api import sync_playwright
+            with sync_playwright() as p:
+                browser_path = p.chromium.executable_path
+            if os.path.exists(browser_path):
+                print(f"  ✓  playwright chromium browser        (installed)")
+            else:
+                print(f"  ⚠  playwright chromium browser        (not installed — run: playwright install chromium)")
+        except Exception:
+            print(f"  –  playwright browser check skipped")
+
     print()
     if all_ok:
         print("All required dependencies are installed.")
@@ -639,6 +708,8 @@ def _add_output_args(p):
     p.add_argument("--diff", action="store_true", help="Diff against previous JSON output")
     p.add_argument("--resume", action="store_true", help="Resume interrupted spider/paginated scrape from checkpoint")
     p.add_argument("--quiet", "-q", action="store_true", help="Suppress run summary output")
+    p.add_argument("--timeout", type=int, default=None, metavar="SECONDS",
+                   help="Per-request timeout in seconds (overrides directive setting)")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -700,6 +771,10 @@ def main():
     p_ai.add_argument("--fields", help="Comma-separated fields to extract (e.g. title,price,rating)")
     p_ai.add_argument("--force", action="store_true", help="Overwrite existing directive without asking")
 
+    # ── validate ──────────────────────────────────────────────────────────────
+    p_validate = sub.add_parser("validate", help="Lint a directive YAML for errors and warnings")
+    p_validate.add_argument("directive", help="Name or path of directive to validate")
+
     # ── doctor ────────────────────────────────────────────────────────────────
     sub.add_parser("doctor", help="Check installed dependencies and environment")
 
@@ -715,6 +790,7 @@ def main():
         "list": cmd_list,
         "query": cmd_query,
         "cache": cmd_cache,
+        "validate": cmd_validate,
         "doctor": cmd_doctor,
     }
     dispatch[args.command](args)

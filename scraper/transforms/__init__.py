@@ -10,6 +10,7 @@ Supported transforms (use in directive under `transform:`):
   regex: pattern   — extract first regex match
   replace: {old: new} — string replace
   split: ","       — split into list
+  join: ", "       — join list into string
   first / last     — pick first/last element of a list
   default: value   — fallback if value is None
   slice: {start, end} — substring / sublist
@@ -17,12 +18,19 @@ Supported transforms (use in directive under `transform:`):
   prepend: "str"   — prepend string
   append: "str"    — append string
   remove_tags      — strip HTML tags from string
+  normalize_whitespace — collapse multiple spaces into one
+  truncate: N      — truncate to N chars, appending "..."
+  slugify          — convert to URL-friendly slug
   date             — parse date string to ISO format (YYYY-MM-DD)
   parse_date       — parse date with custom format
+  boolean          — cast truthy/falsy strings to bool
+  pad: {width, char, side} — pad string to fixed width
+  hash: algorithm  — hash value with md5/sha256/sha1
 """
 
 from __future__ import annotations
 
+import hashlib
 import re
 from datetime import datetime
 from typing import Any
@@ -39,31 +47,37 @@ def _t(name):
 
 @_t("strip")
 def _strip(value, _, **__):
+    """Strip leading and trailing whitespace from a string."""
     return value.strip() if isinstance(value, str) else value
 
 
 @_t("lower")
 def _lower(value, _, **__):
+    """Convert string to lowercase."""
     return value.lower() if isinstance(value, str) else value
 
 
 @_t("upper")
 def _upper(value, _, **__):
+    """Convert string to uppercase."""
     return value.upper() if isinstance(value, str) else value
 
 
 @_t("title")
 def _title(value, _, **__):
+    """Convert string to title case (each word capitalised)."""
     return value.title() if isinstance(value, str) else value
 
 
 @_t("capitalize")
 def _capitalize(value, _, **__):
+    """Capitalise first character, lowercase the rest."""
     return value.capitalize() if isinstance(value, str) else value
 
 
 @_t("sentence_case")
 def _sentence_case(value, _, **__):
+    """First character uppercase, rest lowercase."""
     if not isinstance(value, str) or not value:
         return value
     return value[0].upper() + value[1:].lower()
@@ -71,6 +85,7 @@ def _sentence_case(value, _, **__):
 
 @_t("count")
 def _count(value, _, **__):
+    """Return length of a string or list; pass through other types."""
     if isinstance(value, (str, list)):
         return len(value)
     return value
@@ -78,6 +93,7 @@ def _count(value, _, **__):
 
 @_t("int")
 def _int(value, _, **__):
+    """Cast to integer, stripping non-digit characters (currency symbols, commas, etc.)."""
     if value is None:
         return None
     try:
@@ -87,7 +103,7 @@ def _int(value, _, **__):
 
 
 def _normalize_number_string(s: str) -> str:
-    """Remove currency/space, then normalize decimal: one comma or dot as decimal."""
+    """Strip currency symbols/spaces and normalise comma/dot as decimal separator."""
     s = re.sub(r"[^\d.,\-]", "", s)
     if not s:
         return s
@@ -110,6 +126,7 @@ def _normalize_number_string(s: str) -> str:
 
 @_t("float")
 def _float(value, _, **__):
+    """Cast to float, handling currency symbols and European decimal notation."""
     if value is None:
         return None
     try:
@@ -121,6 +138,7 @@ def _float(value, _, **__):
 
 @_t("regex")
 def _regex(value, pattern, **__):
+    """Extract the first match of *pattern* from the string; returns None if no match."""
     if not isinstance(value, str):
         return value
     m = re.search(str(pattern), value, re.IGNORECASE | re.DOTALL)
@@ -129,6 +147,11 @@ def _regex(value, pattern, **__):
 
 @_t("regex_group")
 def _regex_group(value, args, **__):
+    """Extract a specific capture group from a regex match.
+
+    Args (dict): pattern — regex pattern, group — group index (default 1).
+    Returns None if no match or group does not exist.
+    """
     if not isinstance(value, str) or not isinstance(args, dict):
         return value
     pattern = args.get("pattern", "")
@@ -144,6 +167,7 @@ def _regex_group(value, args, **__):
 
 @_t("replace")
 def _replace(value, args, **__):
+    """Replace substrings. Args is a dict mapping {old: new}."""
     if not isinstance(value, str) or not isinstance(args, dict):
         return value
     for old, new in args.items():
@@ -153,6 +177,7 @@ def _replace(value, args, **__):
 
 @_t("split")
 def _split(value, sep=None, **__):
+    """Split string into a list on *sep* (default: ','), stripping each element."""
     if not isinstance(value, str):
         return value
     if sep is None:
@@ -162,6 +187,7 @@ def _split(value, sep=None, **__):
 
 @_t("join")
 def _join(value, sep=None, **__):
+    """Join a list into a string with *sep* (default: ', ')."""
     if not isinstance(value, list):
         return value
     if sep is None:
@@ -171,6 +197,7 @@ def _join(value, sep=None, **__):
 
 @_t("first")
 def _first(value, _, **__):
+    """Return the first element of a list, or None if empty."""
     if isinstance(value, list):
         return value[0] if value else None
     return value
@@ -178,6 +205,7 @@ def _first(value, _, **__):
 
 @_t("last")
 def _last(value, _, **__):
+    """Return the last element of a list, or None if empty."""
     if isinstance(value, list):
         return value[-1] if value else None
     return value
@@ -185,11 +213,16 @@ def _last(value, _, **__):
 
 @_t("default")
 def _default(value, fallback, **__):
+    """Return *fallback* when value is None, otherwise return value unchanged."""
     return fallback if value is None else value
 
 
 @_t("slice")
 def _slice(value, args, **__):
+    """Slice a string or list.
+
+    Args can be a dict with optional 'start'/'end' keys, or a plain int (equivalent to end).
+    """
     if isinstance(args, dict):
         start = args.get("start", 0)
         end = args.get("end")
@@ -204,6 +237,7 @@ def _slice(value, args, **__):
 
 @_t("prepend")
 def _prepend(value, prefix, **__):
+    """Prepend *prefix* to a string value."""
     if isinstance(value, str):
         return str(prefix) + value
     return value
@@ -211,6 +245,7 @@ def _prepend(value, prefix, **__):
 
 @_t("append")
 def _append(value, suffix, **__):
+    """Append *suffix* to a string value."""
     if isinstance(value, str):
         return value + str(suffix)
     return value
@@ -218,6 +253,7 @@ def _append(value, suffix, **__):
 
 @_t("remove_tags")
 def _remove_tags(value, _, **__):
+    """Strip HTML/XML tags and collapse resulting whitespace."""
     if not isinstance(value, str):
         return value
     without_tags = re.sub(r"<[^>]+>", " ", value)
@@ -226,6 +262,7 @@ def _remove_tags(value, _, **__):
 
 @_t("normalize_whitespace")
 def _normalize_whitespace(value, _, **__):
+    """Collapse consecutive whitespace into a single space and strip ends."""
     if not isinstance(value, str):
         return value
     return re.sub(r"\s+", " ", value).strip()
@@ -233,13 +270,16 @@ def _normalize_whitespace(value, _, **__):
 
 @_t("truncate")
 def _truncate(value, length, **__):
+    """Truncate string to *length* characters, appending '...'.
+
+    Breaks at the last word boundary so words are not split.
+    """
     if not isinstance(value, str):
         return value
     max_length = int(length)
     if len(value) <= max_length:
         return value
     truncated = value[:max_length]
-    # Trim to last word boundary only if next char exists and is not space (cutting a word)
     if max_length < len(value) and value[max_length] not in (" ", ""):
         last_space = truncated.rfind(" ")
         if last_space > 0:
@@ -249,16 +289,70 @@ def _truncate(value, length, **__):
 
 @_t("slugify")
 def _slugify(value, _, **__):
+    """Convert a string to a URL-friendly slug (lowercase, hyphens, no special chars)."""
     if not isinstance(value, str):
         return value
-    # Convert to lowercase
     value = value.lower()
-    # Remove special characters (except alphanumeric, spaces, hyphens)
     value = re.sub(r"[^\w\s-]", "", value)
-    # Replace spaces and underscores with hyphens
     value = re.sub(r"[\s_-]+", "-", value)
-    # Strip leading/trailing hyphens
     return value.strip("-")
+
+
+@_t("boolean")
+def _boolean(value, _, **__):
+    """Cast truthy/falsy strings to Python bool.
+
+    Truthy:  'true', 'yes', '1', 'on'  (case-insensitive)
+    Falsy:   'false', 'no', '0', 'off' (case-insensitive)
+    Returns original value unchanged if it does not match.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in ("true", "yes", "1", "on"):
+            return True
+        if lowered in ("false", "no", "0", "off"):
+            return False
+    return value
+
+
+@_t("pad")
+def _pad(value, args, **__):
+    """Pad a string to a fixed width.
+
+    Args (dict):
+        width — target length (required)
+        char  — fill character (default: ' ')
+        side  — 'left' or 'right' (default: 'right')
+
+    Example: pad: {width: 5, char: '0', side: left} → '00042'
+    """
+    if not isinstance(value, str):
+        return value
+    if not isinstance(args, dict):
+        return value
+    width = int(args.get("width", 0))
+    char = str(args.get("char", " "))[:1] or " "
+    side = str(args.get("side", "right")).lower()
+    if side == "left":
+        return value.rjust(width, char)
+    return value.ljust(width, char)
+
+
+@_t("hash")
+def _hash(value, algorithm, **__):
+    """Hash the string value using *algorithm* (md5, sha1, sha256, sha512).
+
+    Returns the hex digest string, or the original value if unsupported.
+    """
+    if not isinstance(value, str):
+        return value
+    algo = str(algorithm).lower() if algorithm else "sha256"
+    supported = {"md5", "sha1", "sha256", "sha512"}
+    if algo not in supported:
+        return value
+    return hashlib.new(algo, value.encode()).hexdigest()
 
 
 @_t("template")

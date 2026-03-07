@@ -66,14 +66,19 @@ def _validate_directive(dados: dict, path: str):
         )
 
 
-async def grab_elements_by_directive(path: str, resume: bool = False) -> dict | list[dict]:
+async def grab_elements_by_directive(path: str, resume: bool = False, timeout: int | None = None) -> dict | list[dict]:
     """
     Main entry point. Returns a single dict for simple scrapes,
     or a list of dicts for paginated / spider / multi-site scrapes.
+
+    timeout: per-request timeout in seconds (overrides directive-level setting).
     """
     with open(path) as f:
         dados = yaml.safe_load(f)
-    
+
+    if timeout is not None:
+        dados["timeout"] = timeout
+
     # Validate directive has required keys
     _validate_directive(dados, path)
 
