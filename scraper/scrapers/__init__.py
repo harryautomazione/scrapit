@@ -148,6 +148,11 @@ async def _dispatch(dados: dict, stats: ScrapeStats, directive_name: str, resume
     has_sites = bool(dados.get("sites"))
     has_paginate = bool(dados.get("paginate"))
 
+    # ── Resolve Bright Data proxy for bs4/playwright modes ────────────────────
+    if dados.get("proxy") == "brightdata":
+        from scraper.integrations.brightdata import proxy_url as _bd_proxy
+        dados = {**dados, "proxy": _bd_proxy()}
+
     # ── Multi-site ────────────────────────────────────────────────────────────
     if has_sites:
         results = []
@@ -155,11 +160,13 @@ async def _dispatch(dados: dict, stats: ScrapeStats, directive_name: str, resume
         for idx, url in enumerate(dados["sites"]):
             site_dados = {**dados, "site": url}
             site_dados.pop("sites", None)
-            if use == "beautifulsoup":
+            if use in ("beautifulsoup", "bs4"):
                 results.append(bs4_scraper.scrape(site_dados))
+            elif use == "brightdata":
+                from scraper.integrations.brightdata import scrape as bd_scrape
+                results.append(await bd_scrape(site_dados, directive_name))
             else:
                 results.append(await playwright_scraper.scrape(site_dados, directive_name))
-            # Apply delay between multi-site requests (skip after last)
             if delay > 0 and idx < len(dados["sites"]) - 1:
                 time.sleep(delay)
         stats.urls_scraped = len(results)
@@ -167,7 +174,7 @@ async def _dispatch(dados: dict, stats: ScrapeStats, directive_name: str, resume
 
     # ── Spider mode ───────────────────────────────────────────────────────────
     if mode == "spider" or has_follow:
-        if use != "beautifulsoup":
+        if use not in ("beautifulsoup", "bs4"):
             raise ValueError("Spider mode only supports 'beautifulsoup' backend.")
         spider = Spider(dados, resume=resume)
         results = spider.run(directive_name=directive_name)
@@ -176,7 +183,7 @@ async def _dispatch(dados: dict, stats: ScrapeStats, directive_name: str, resume
 
     # ── Paginated (bs4 only) ──────────────────────────────────────────────────
     if has_paginate:
-        if use != "beautifulsoup":
+        if use not in ("beautifulsoup", "bs4"):
             raise ValueError("Pagination only supports 'beautifulsoup' backend.")
         results = paginate(dados)
         stats.pages_scraped = len(results)
@@ -184,9 +191,12 @@ async def _dispatch(dados: dict, stats: ScrapeStats, directive_name: str, resume
         return results
 
     # ── Single URL ────────────────────────────────────────────────────────────
-    if use == "beautifulsoup":
+    if use in ("beautifulsoup", "bs4"):
         return [bs4_scraper.scrape(dados)]
     elif use == "playwright":
         return [await playwright_scraper.scrape(dados, directive_name)]
+    elif use == "brightdata":
+        from scraper.integrations.brightdata import scrape as bd_scrape
+        return [await bd_scrape(dados, directive_name)]
     else:
-        raise ValueError(f"Unknown backend: {use!r}. Use 'beautifulsoup' or 'playwright'.")
+        raise ValueError(f"Unknown backend: {use!r}. Use 'beautifulsoup', 'playwright', or 'brightdata'.")

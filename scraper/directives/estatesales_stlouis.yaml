@@ -1,0 +1,35 @@
+# Estate Sales Network — St. Louis listings
+# Scrapes all estate sale addresses from the listings page.
+# Requires Playwright (Angular-rendered content).
+# Usage: scrapit scrape estatesales_stlouis --json
+
+site: https://www.estatesales.net/MO/St-Louis?force-reload=true
+
+# Bright Data Scraping Browser — bypasses bot detection on Angular sites
+# Requires: BRIGHTDATA_WS_ENDPOINT in .env
+# Alternative: use: playwright + proxy: brightdata (uses residential proxy pool)
+use: brightdata
+
+timeout: 60000
+wait_for: 'address .address-line-1'
+delay: 2
+
+scrape:
+  address_line1:
+    - 'address .address-line-1 span'
+    - attr: text
+      all: true
+
+  address_line2:
+    - 'address .address-line-2'
+    - attr: text
+      all: true
+
+transform:
+  address_line1:
+    - strip
+  address_line2:
+    - strip
+    - replace:
+        "\u00a0": " "   # replace &nbsp; with regular space
+    - normalize_whitespace
