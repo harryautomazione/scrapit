@@ -16,6 +16,8 @@ Extra directive keys handled here:
   validate: {...}     — per-field validation rules
 """
 
+import os
+import re
 import time
 import yaml
 from pathlib import Path
@@ -66,6 +68,17 @@ def _validate_directive(dados: dict, path: str):
         )
 
 
+def _interpolate_env(obj):
+    """Recursively replace ${VAR} placeholders in directive strings with env vars."""
+    if isinstance(obj, str):
+        return re.sub(r"\$\{([^}]+)\}", lambda m: os.environ.get(m.group(1), m.group(0)), obj)
+    if isinstance(obj, dict):
+        return {k: _interpolate_env(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_interpolate_env(v) for v in obj]
+    return obj
+
+
 async def grab_elements_by_directive(path: str, resume: bool = False, timeout: int | None = None) -> dict | list[dict]:
     """
     Main entry point. Returns a single dict for simple scrapes,
@@ -75,6 +88,8 @@ async def grab_elements_by_directive(path: str, resume: bool = False, timeout: i
     """
     with open(path) as f:
         dados = yaml.safe_load(f)
+
+    dados = _interpolate_env(dados)
 
     if timeout is not None:
         dados["timeout"] = timeout
