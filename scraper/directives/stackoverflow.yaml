@@ -1,0 +1,73 @@
+# Stack Overflow — scrapes questions from a given tag (default: python)
+# Usage: python -m scraper.main scrape stackoverflow --json
+# Tip: Change the `site` URL tag (e.g. /questions/tagged/sql) to scrape any topic
+
+site: https://stackoverflow.com/questions/tagged/python
+use: beautifulsoup
+
+retries: 3
+timeout: 15
+
+cache:
+  ttl: 3600              # cache for 1 hour — question listings don't change that fast
+
+scrape:
+  title:
+    - 'h3.s-post-summary--content-title a'
+    - attr: text
+
+  link:
+    - 'h3.s-post-summary--content-title a'
+    - attr: href
+
+  votes:
+    - 'span.s-post-summary--stats-item-number'
+    - attr: title
+
+  answers:
+    - 'div.s-post-summary--stats-item.has-answers span.s-post-summary--stats-item-number'
+    - attr: text
+
+  excerpt:
+    - 'div.s-post-summary--content-excerpt'
+    - attr: text
+
+  asked_at:
+    - 'span.relativetime'
+    - attr: title
+
+paginate:
+  selector: 'a[rel="next"]'
+  attr: href
+  max_pages: 3
+
+transform:
+  title:
+    - strip
+  excerpt:
+    - strip
+    - {slice: {end: 300}}
+  votes:
+    - strip
+    - {regex: '-?\d+'}
+    - {default: "0"}
+    - int
+  answers:
+    - strip
+    - int
+  link:
+    - {prepend: "https://stackoverflow.com"}
+
+validate:
+  title:
+    required: true
+    min_length: 5
+    max_length: 300
+  link:
+    required: true
+    pattern: '^https://stackoverflow\.com/questions/\d+'
+  votes:
+    type: int
+  answers:
+    type: int
+    min: 0
