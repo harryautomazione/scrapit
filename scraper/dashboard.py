@@ -153,7 +153,8 @@ _HTML = """<!DOCTYPE html>
   #sidebar-header {
     padding: 20px 16px 14px; border-bottom: 1px solid var(--border);
   }
-  #sidebar-header h1 { font-size: 15px; font-weight: 700; letter-spacing: -.3px; color: var(--accent2); }
+  #sidebar-header h1 { font-size: 18px; font-weight: 700; letter-spacing: -.03em; color: var(--text); }
+  #sidebar-header h1 span { color: #58a6ff; }
   #sidebar-header p  { font-size: 11px; color: var(--muted); margin-top: 2px; }
   #directive-list { flex: 1; overflow-y: auto; padding: 8px 0; }
   .directive-item {
@@ -234,7 +235,7 @@ _HTML = """<!DOCTYPE html>
 
 <nav id="sidebar">
   <div id="sidebar-header">
-    <h1>⚡ scrapit</h1>
+    <h1>scrap<span>it</span></h1>
     <p id="sidebar-subtitle">loading…</p>
   </div>
   <div id="directive-list"></div>
