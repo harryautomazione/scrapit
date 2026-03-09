@@ -162,6 +162,9 @@ async def _dispatch(dados: dict, stats: ScrapeStats, directive_name: str, resume
             site_dados.pop("sites", None)
             if use in ("beautifulsoup", "bs4"):
                 results.append(bs4_scraper.scrape(site_dados))
+            elif use == "httpx":
+                from scraper.scrapers.httpx_scraper import scrape as httpx_scrape
+                results.append(httpx_scrape(site_dados))
             elif use == "brightdata":
                 from scraper.integrations.brightdata import scrape as bd_scrape
                 results.append(await bd_scrape(site_dados, directive_name))
@@ -193,10 +196,13 @@ async def _dispatch(dados: dict, stats: ScrapeStats, directive_name: str, resume
     # ── Single URL ────────────────────────────────────────────────────────────
     if use in ("beautifulsoup", "bs4"):
         return [bs4_scraper.scrape(dados)]
+    elif use == "httpx":
+        from scraper.scrapers.httpx_scraper import scrape as httpx_scrape
+        return [httpx_scrape(dados)]
     elif use == "playwright":
         return [await playwright_scraper.scrape(dados, directive_name)]
     elif use == "brightdata":
         from scraper.integrations.brightdata import scrape as bd_scrape
         return [await bd_scrape(dados, directive_name)]
     else:
-        raise ValueError(f"Unknown backend: {use!r}. Use 'beautifulsoup', 'playwright', or 'brightdata'.")
+        raise ValueError(f"Unknown backend: {use!r}. Use 'beautifulsoup', 'httpx', 'playwright', or 'brightdata'.")
