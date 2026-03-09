@@ -26,6 +26,9 @@ from scraper.storage import google_sheets as gs_storage
 from scraper.storage.diff import diff, load_previous
 from scraper.notifications import notify
 from scraper.logger import log
+from scraper.plugins import load_plugins
+
+load_plugins()
 
 _DIRECTIVES_DIR = Path(__file__).resolve().parent / "directives"
 _ROOT = Path(__file__).resolve().parent.parent
@@ -112,11 +115,22 @@ def _run_one(
     credentials_path: str = None,
     resume: bool = False,
     timeout: int | None = None,
+    stream: bool = False,
 ):
     import yaml
     name = directive_path.stem
 
-    result = asyncio.run(grab_elements_by_directive(str(directive_path), resume=resume, timeout=timeout))
+    _stream_results = []
+
+    def _on_result(record, idx, total):
+        if stream:
+            print(json.dumps(record, default=str), flush=True)
+        _stream_results.append(record)
+
+    result = asyncio.run(grab_elements_by_directive(
+        str(directive_path), resume=resume, timeout=timeout,
+        on_result=_on_result if stream else None,
+    ))
 
     # Pretty-print to console
     print(json.dumps(result, indent=2, default=str))
@@ -183,9 +197,11 @@ def cmd_scrape(args):
     timeout = getattr(args, 'timeout', None)
     spreadsheet_id = getattr(args, 'sheets_id', None)
     credentials_path = getattr(args, 'sheets_credentials', None)
+    stream = getattr(args, "stream", False)
     _run_one(path, dest, output_dir=output_dir, compact=compact, preview=args.preview,
              detect_changes=args.diff, resume=resume, timeout=timeout,
-             spreadsheet_id=spreadsheet_id, credentials_path=credentials_path)
+             spreadsheet_id=spreadsheet_id, credentials_path=credentials_path,
+             stream=stream)
 
 
 def cmd_batch(args):
@@ -548,6 +564,133 @@ def cmd_serve(args):
     serve(host=args.host, port=args.port, open_browser=not args.no_browser)
 
 
+def cmd_export(args):
+    """Export data between storage backends."""
+    from_backend = args.from_backend
+    to_backend = args.to_backend
+    directive = args.directive
+    since = getattr(args, "since", None)
+    output_dir = getattr(args, "output_dir", None)
+    export_all = getattr(args, "all", False)
+
+    # ── Read from source backend ───────────────────────────────────────────────
+    if from_backend == "sqlite":
+        if export_all:
+            records = sqlite_storage.read(since=since, output_dir=output_dir)
+        else:
+            if not directive:
+                print("error: --directive required (or use --all)", file=sys.stderr)
+                sys.exit(1)
+            records = sqlite_storage.read(directive, since=since, output_dir=output_dir)
+    elif from_backend == "json":
+        if not directive:
+            print("error: --directive required for JSON export", file=sys.stderr)
+            sys.exit(1)
+        records = json_file.read(directive, output_dir=output_dir)
+    elif from_backend == "csv":
+        if not directive:
+            print("error: --directive required for CSV export", file=sys.stderr)
+            sys.exit(1)
+        records = csv_storage.read(directive, output_dir=output_dir)
+    else:
+        print(f"error: unsupported source backend: {from_backend}", file=sys.stderr)
+        sys.exit(1)
+
+    if not records:
+        print(f"no records found in {from_backend}" + (f" for '{directive}'" if directive else ""))
+        return
+
+    name = directive or "export"
+    total = len(records)
+    print(f"→ exporting {total} record(s) from {from_backend} → {to_backend}")
+
+    # ── Write to destination backend ──────────────────────────────────────────
+    for i, record in enumerate(records, 1):
+        if to_backend == "sqlite":
+            sqlite_storage.save(record, name, output_dir=output_dir)
+        elif to_backend == "csv":
+            csv_storage.save(record, name, output_dir=output_dir)
+        elif to_backend == "mongo":
+            mongo.save_scraped(record)
+        elif to_backend == "json":
+            pass  # handled below
+        elif to_backend == "parquet":
+            pass  # handled below
+        print(f"\r  {i}/{total}", end="", flush=True)
+
+    print()  # newline after progress
+
+    if to_backend == "json":
+        out = json_file.save(records if len(records) > 1 else records[0], name, output_dir=output_dir)
+        print(f"→ saved {total} record(s) to {out}")
+    elif to_backend == "parquet":
+        from scraper.storage import parquet_file
+        out = parquet_file.save(records, name, output_dir=output_dir)
+        print(f"→ saved {total} record(s) to {out}")
+    elif to_backend == "mongo":
+        print(f"→ exported {total} record(s) to MongoDB")
+    elif to_backend in ("sqlite", "csv"):
+        print(f"→ exported {total} record(s) to {to_backend}")
+
+
+def cmd_run(args):
+    """Run a directive on a schedule (daemon mode, reads schedule: key from YAML)."""
+    import time
+    import yaml as _yaml
+
+    path = _resolve(args.directive)
+    with open(path) as f:
+        dados = _yaml.safe_load(f)
+
+    schedule_expr = args.schedule or dados.get("schedule")
+    if not schedule_expr:
+        print("error: no schedule specified — add 'schedule:' to directive or pass --schedule", file=sys.stderr)
+        sys.exit(1)
+
+    dest = _dest(args)
+    output_dir = getattr(args, "output_dir", None)
+
+    # Try croniter for cron expressions, fall back to simple interval (Ns/Nm/Nh)
+    try:
+        from croniter import croniter
+        _use_croniter = True
+    except ImportError:
+        _use_croniter = False
+
+    def _next_sleep(expr: str) -> float:
+        """Return seconds until next scheduled run."""
+        if _use_croniter:
+            import datetime
+            now = datetime.datetime.now()
+            cron = croniter(expr, now)
+            return (cron.get_next(datetime.datetime) - now).total_seconds()
+        # Simple interval: 30s, 5m, 2h
+        import re
+        m = re.fullmatch(r"(\d+)([smh]?)", expr.strip())
+        if m:
+            n, unit = int(m.group(1)), m.group(2) or "s"
+            return n * {"s": 1, "m": 60, "h": 3600}[unit]
+        raise ValueError(f"Unrecognised schedule expression: {expr!r} (install croniter for cron syntax)")
+
+    print(f"→ scheduler started for '{path.stem}' (schedule: {schedule_expr!r})")
+    print("  Press Ctrl+C to stop.\n")
+
+    while True:
+        try:
+            secs = _next_sleep(schedule_expr)
+        except ValueError as e:
+            print(f"error: {e}", file=sys.stderr)
+            sys.exit(1)
+        print(f"→ next run in {secs:.0f}s")
+        time.sleep(secs)
+        print(f"→ running '{path.stem}'...")
+        try:
+            _run_one(path, dest, output_dir=output_dir)
+        except Exception as e:
+            log(f"scheduler: error in '{path.stem}': {e}", "error")
+            print(f"  ✗ ERROR: {e}", file=sys.stderr)
+
+
 def cmd_doctor(_args):
     print("scrapit doctor — checking environment\n")
     checks = [
@@ -818,6 +961,8 @@ def _add_output_args(p):
     p.add_argument("--quiet", "-q", action="store_true", help="Suppress run summary output")
     p.add_argument("--timeout", type=int, default=None, metavar="SECONDS",
                    help="Per-request timeout in seconds (overrides directive setting)")
+    p.add_argument("--stream", action="store_true",
+                   help="Stream results as NDJSON to stdout as each page is scraped (spider/paginate only)")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -893,6 +1038,27 @@ def main():
     # ── doctor ────────────────────────────────────────────────────────────────
     sub.add_parser("doctor", help="Check installed dependencies and environment")
 
+    # ── export ────────────────────────────────────────────────────────────────
+    p_export = sub.add_parser("export", help="Convert data between storage backends (e.g. sqlite → csv)")
+    p_export.add_argument("--from", dest="from_backend", required=True,
+                          choices=["sqlite", "json", "csv"], help="Source backend")
+    p_export.add_argument("--to", dest="to_backend", required=True,
+                          choices=["sqlite", "json", "csv", "mongo", "parquet"], help="Destination backend")
+    p_export.add_argument("--directive", default=None, help="Filter by directive name")
+    p_export.add_argument("--since", default=None, metavar="DATE",
+                          help="Only export records since this date (YYYY-MM-DD)")
+    p_export.add_argument("--all", action="store_true", dest="all",
+                          help="Export all directives (SQLite source only)")
+    p_export.add_argument("--output-dir", default=None, help="Custom output directory")
+
+    # ── run ───────────────────────────────────────────────────────────────────
+    p_run = sub.add_parser("run", help="Run a directive on a recurring schedule (daemon)")
+    p_run.add_argument("directive", help="Directive name or path")
+    p_run.add_argument("--schedule", default=None, metavar="EXPR",
+                       help="Cron expression or interval (e.g. '*/30 * * * *', '5m', '1h'). "
+                            "Overrides the 'schedule:' key in the directive.")
+    _add_output_args(p_run)
+
     # ── serve ─────────────────────────────────────────────────────────────────
     p_serve = sub.add_parser("serve", help="Start the web dashboard (requires scrapit[ui])")
     p_serve.add_argument("--host", default="127.0.0.1", help="Host to bind (default: 127.0.0.1)")
@@ -914,6 +1080,8 @@ def main():
         "diff": cmd_diff,
         "validate": cmd_validate,
         "doctor": cmd_doctor,
+        "export": cmd_export,
+        "run": cmd_run,
         "serve": cmd_serve,
     }
     dispatch[args.command](args)
