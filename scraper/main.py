@@ -543,6 +543,11 @@ def cmd_validate(args):
         sys.exit(1)
 
 
+def cmd_serve(args):
+    from scraper.dashboard import serve
+    serve(host=args.host, port=args.port, open_browser=not args.no_browser)
+
+
 def cmd_doctor(_args):
     print("scrapit doctor — checking environment\n")
     checks = [
@@ -888,6 +893,12 @@ def main():
     # ── doctor ────────────────────────────────────────────────────────────────
     sub.add_parser("doctor", help="Check installed dependencies and environment")
 
+    # ── serve ─────────────────────────────────────────────────────────────────
+    p_serve = sub.add_parser("serve", help="Start the web dashboard (requires scrapit[ui])")
+    p_serve.add_argument("--host", default="127.0.0.1", help="Host to bind (default: 127.0.0.1)")
+    p_serve.add_argument("--port", type=int, default=7331, help="Port to listen on (default: 7331)")
+    p_serve.add_argument("--no-browser", action="store_true", dest="no_browser", help="Do not open browser automatically")
+
     args = parser.parse_args()
 
     dispatch = {
@@ -903,6 +914,7 @@ def main():
         "diff": cmd_diff,
         "validate": cmd_validate,
         "doctor": cmd_doctor,
+        "serve": cmd_serve,
     }
     dispatch[args.command](args)
 
