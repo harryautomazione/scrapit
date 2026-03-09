@@ -8,15 +8,20 @@ Usage:
 Requires: pip install scrapit[ui]
 """
 
+import asyncio
 import csv
 import io
 import json
+import threading
 from pathlib import Path
 from datetime import datetime
 
 from scraper.config import OUTPUT_DIR
 from pathlib import Path as _Path
 _DIRECTIVES_DIR = _Path(__file__).resolve().parent / "directives"
+
+# job state: {name: {status, error, finished_at}}
+_jobs: dict[str, dict] = {}
 
 try:
     from fastapi import FastAPI, HTTPException
@@ -86,6 +91,38 @@ def api_diff(name: str):
     if not path.exists():
         raise HTTPException(404, "No diff found")
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+@app.post("/api/run/{name}")
+def api_run(name: str):
+    yaml_path = _DIRECTIVES_DIR / f"{name}.yaml"
+    if not yaml_path.exists():
+        raise HTTPException(404, f"Directive '{name}' not found")
+    if _jobs.get(name, {}).get("status") == "running":
+        return {"status": "already_running"}
+
+    _jobs[name] = {"status": "running", "error": None, "finished_at": None}
+
+    def _run():
+        try:
+            from scraper.scrapers import grab_elements_by_directive
+            from scraper.storage import json_file
+            results = asyncio.run(grab_elements_by_directive(str(yaml_path)))
+            if not isinstance(results, list):
+                results = [results]
+            OUTPUT_DIR.mkdir(exist_ok=True)
+            json_file.save(results, name)
+            _jobs[name] = {"status": "done", "error": None, "finished_at": datetime.now().isoformat()}
+        except Exception as e:
+            _jobs[name] = {"status": "error", "error": str(e), "finished_at": datetime.now().isoformat()}
+
+    threading.Thread(target=_run, daemon=True).start()
+    return {"status": "running"}
+
+
+@app.get("/api/run/{name}/status")
+def api_run_status(name: str):
+    return _jobs.get(name, {"status": "idle"})
 
 
 @app.get("/export/{name}/json")
@@ -172,6 +209,14 @@ _HTML = """<!DOCTYPE html>
     padding: 1px 6px; border-radius: 99px; white-space: nowrap;
   }
   .diff-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--yellow); flex-shrink: 0; }
+  .run-btn {
+    font-size: 10px; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted); cursor: pointer; transition: all .15s; white-space: nowrap;
+  }
+  .run-btn:hover { border-color: var(--green); color: var(--green); }
+  .run-btn.running { border-color: var(--yellow); color: var(--yellow); cursor: default; animation: pulse 1s infinite; }
+  .run-btn.error { border-color: var(--red); color: var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
 
   /* Main */
   #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
@@ -262,6 +307,25 @@ _HTML = """<!DOCTYPE html>
 <script>
 const $ = id => document.getElementById(id);
 let _current = null, _page = 1, _pages = 1;
+const _polling = {};
+
+async function runDirective(name, btn) {
+  btn.textContent = '…'; btn.className = 'run-btn running'; btn.disabled = true;
+  await fetch('/api/run/' + name, {method: 'POST'});
+  _polling[name] = setInterval(async () => {
+    const s = await fetch('/api/run/' + name + '/status').then(r => r.json());
+    if (s.status === 'done') {
+      clearInterval(_polling[name]);
+      btn.textContent = '▶'; btn.className = 'run-btn'; btn.disabled = false;
+      await loadDirectives();
+      if (_current === name) await renderResults(name, 1);
+    } else if (s.status === 'error') {
+      clearInterval(_polling[name]);
+      btn.textContent = '✗'; btn.className = 'run-btn error'; btn.disabled = false;
+      btn.title = s.error;
+    }
+  }, 1500);
+}
 
 async function loadDirectives() {
   const res = await fetch('/api/directives');
@@ -278,6 +342,11 @@ async function loadDirectives() {
     const item = document.createElement('div');
     item.className = 'directive-item';
     item.dataset.name = d.name;
+    const runBtn = document.createElement('button');
+    runBtn.className = 'run-btn'; runBtn.textContent = '▶';
+    runBtn.title = 'Run scrape';
+    runBtn.addEventListener('click', e => { e.stopPropagation(); runDirective(d.name, runBtn); });
+
     item.innerHTML = `
       <div style="flex:1;overflow:hidden">
         <div class="d-name">${d.name}</div>
@@ -286,6 +355,7 @@ async function loadDirectives() {
       ${d.has_diff ? '<div class="diff-dot" title="has diff"></div>' : ''}
       <span class="d-badge">${d.count}</span>
     `;
+    item.appendChild(runBtn);
     item.addEventListener('click', () => selectDirective(d.name));
     el.appendChild(item);
   });
