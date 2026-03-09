@@ -19,3 +19,13 @@ def save(data: dict, name: str, *, output_dir: str | None = None) -> str:
         writer.writerow(flat)
 
     return str(out_file)
+
+
+def read(name: str, *, output_dir: str | None = None) -> list[dict]:
+    """Read records from a CSV output file."""
+    base = Path(output_dir) if output_dir else OUTPUT_DIR
+    out_file = base / f"{name}.csv"
+    if not out_file.exists():
+        return []
+    with open(out_file, newline="", encoding="utf-8") as f:
+        return list(csv.DictReader(f))

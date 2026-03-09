@@ -123,3 +123,35 @@ def _row_to_dict(row: sqlite3.Row) -> dict:
     except (json.JSONDecodeError, KeyError):
         pass
     return d
+
+
+def read(
+    directive: str | None = None,
+    *,
+    since: str | None = None,
+    output_dir: str | None = None,
+) -> list[dict]:
+    """Read records from SQLite, optionally filtered by directive and/or since date."""
+    conn = _connect(output_dir)
+    clauses, params = [], []
+    if directive:
+        clauses.append("directive = ?")
+        params.append(directive)
+    if since:
+        clauses.append("timestamp >= ?")
+        params.append(since)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    rows = conn.execute(
+        f"SELECT * FROM scrapes {where} ORDER BY id ASC",
+        params,
+    ).fetchall()
+    conn.close()
+    records = []
+    for row in rows:
+        d = dict(row)
+        try:
+            payload = json.loads(d["data"])
+            records.append(payload if isinstance(payload, dict) else d)
+        except (json.JSONDecodeError, KeyError):
+            records.append(d)
+    return records
