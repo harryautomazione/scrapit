@@ -17,6 +17,7 @@ Extra directive keys handled here:
 """
 
 import os
+import random
 import re
 import time
 import yaml
@@ -31,6 +32,27 @@ from scraper.logger import log
 
 # Required keys for directive validation
 _REQUIRED_KEYS = ["site", "use", "scrape"]
+
+
+def _apply_throttle(dados: dict) -> dict:
+    """Translate throttle: YAML key into a delay value with optional jitter."""
+    throttle = dados.get("throttle")
+    if not throttle or not isinstance(throttle, dict):
+        return dados
+
+    rps   = throttle.get("requests_per_second")
+    fixed = throttle.get("delay_between_pages") or throttle.get("delay")
+    jitter = float(throttle.get("jitter", 0))
+
+    if rps:
+        base = 1.0 / float(rps)
+    elif fixed:
+        base = float(fixed)
+    else:
+        return dados
+
+    delay = base + random.uniform(0, jitter) if jitter > 0 else base
+    return {**dados, "delay": delay}
 
 
 def _validate_directive(dados: dict, path: str):
@@ -96,6 +118,8 @@ async def grab_elements_by_directive(path: str, resume: bool = False, timeout: i
 
     # Validate directive has required keys
     _validate_directive(dados, path)
+
+    dados = _apply_throttle(dados)
 
     directive_name = Path(path).stem
     stats = ScrapeStats(directive=directive_name, url=dados.get("site", ""))
