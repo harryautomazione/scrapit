@@ -36,6 +36,7 @@ from datetime import datetime
 from typing import Any
 
 _REGISTRY: dict[str, callable] = {}
+_registry = _REGISTRY  # alias for plugin loader
 
 
 def _t(name):

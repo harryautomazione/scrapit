@@ -473,6 +473,7 @@ def serve(host: str = "127.0.0.1", port: int = 7331, open_browser: bool = True):
     url = f"http://{host}:{port}"
     print(f"→ dashboard at {url}")
     if open_browser:
-        import threading, webbrowser
+        import threading
+        import webbrowser
         threading.Timer(0.8, lambda: webbrowser.open(url)).start()
     uvicorn.run(app, host=host, port=port, log_level="warning")
