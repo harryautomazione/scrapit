@@ -17,20 +17,30 @@ No code required for new targets. Just write a YAML.
 | Feature | Description |
 |---------|-------------|
 | **YAML directives** | Declarative scrape configs — selectors, transforms, validation, cache |
-| **Two backends** | BeautifulSoup (fast, static) or Playwright (JS-rendered) |
+| **Five backends** | BeautifulSoup, Playwright (JS), httpx (async), GraphQL, Bright Data |
 | **Fallback selectors** | Per-field list of CSS selectors tried in order |
+| **XPath support** | Use `xpath:` prefix in any selector (requires `lxml`) |
 | **`all: true`** | Extract all matches for a selector, not just the first |
 | **Pagination** | Follow "next page" links automatically |
 | **Spider mode** | Discover and scrape all linked pages from an index |
+| **Parallel spider** | Set `follow.parallel: 10` for concurrent async fetching with httpx |
+| **Incremental spider** | `follow.incremental: true` — skip previously visited URLs across runs |
 | **Multi-site** | Scrape multiple URLs with the same spec in one directive |
-| **Transform pipeline** | Declarative field transforms: strip, regex, float, replace, split… |
+| **Transform pipeline** | 28+ declarative field transforms: strip, regex, date, hash, boolean… |
 | **Validation** | Per-field rules: required, type, min/max, pattern, enum |
-| **Five output backends** | JSON, CSV (append), SQLite (zero-config), MongoDB, PostgreSQL |
-| **HTTP cache** | File-based cache with TTL — avoid re-fetching during dev |
+| **Eight output backends** | JSON, CSV, SQLite, MongoDB, PostgreSQL, Excel, Google Sheets, Parquet |
+| **HTTP cache** | File-based or Redis-backed cache with TTL |
+| **Proxy rotation** | Round-robin/random pool with per-proxy failure tracking |
+| **Stealth mode** | Playwright fingerprint randomisation — UA, viewport, locale, timezone |
 | **Change detection** | Diff result against previous run, fire webhook on change |
-| **Webhook notifications** | POST JSON payload to any URL when changes detected |
+| **Webhook notifications** | POST JSON payload to Slack/Discord when changes detected |
+| **Built-in scheduler** | `schedule: "*/30 * * * *"` + `scrapit run` daemon |
+| **Streaming output** | `--stream` emits NDJSON lines as each spider page completes |
+| **Backend export** | `scrapit export --from sqlite --to csv` — migrate between backends |
+| **Web dashboard** | `scrapit serve` — browse results, run directives, download output |
 | **Stats reporter** | Field coverage %, timing, error count per run |
 | **Hook system** | Register callbacks for scrape lifecycle events |
+| **Plugin system** | Publish custom transforms/backends as pip packages via entry_points |
 | **Async queue** | RabbitMQ producer/consumer for background processing |
 | **Structured logging** | Console + `output/scraper.log` |
 
@@ -79,22 +89,37 @@ SCRAPIT_WEBHOOK_URL=https://hooks.example.com/...
 
 ```bash
 # create a new directive interactively
-python -m scraper.main init
+scrapit init
 
 # scrape Wikipedia, save to JSON
-python -m scraper.main scrape wikipedia --json
+scrapit scrape wikipedia --json
 
 # scrape Hacker News (paginated), save to SQLite
-python -m scraper.main scrape hn --sqlite
+scrapit scrape hn --sqlite
 
 # spider Books to Scrape, preview only
-python -m scraper.main scrape books --preview
+scrapit scrape books --preview
+
+# stream results as they arrive (spider mode)
+scrapit scrape blog --json --stream
 
 # scrape all directives in the default folder
-python -m scraper.main batch --json
+scrapit batch --json
 
 # list available directives
-python -m scraper.main list
+scrapit list
+
+# open the web dashboard
+scrapit serve
+
+# run a scheduled directive as a daemon
+scrapit run hn --json
+
+# export SQLite → CSV
+scrapit export --from sqlite --to csv --directive hn
+
+# check environment
+scrapit doctor
 ```
 
 ---
@@ -130,7 +155,7 @@ Each field is stubbed with a `FIXME` placeholder — open the file, fill in your
 ### `scrape` — single directive
 
 ```bash
-python -m scraper.main scrape <directive> [--json|--csv|--sqlite|--mongo] [--preview] [--diff]
+scrapit scrape <directive> [--json|--csv|--sqlite|--mongo|--postgres|--excel|--sheets|--parquet] [--preview] [--diff] [--stream]
 ```
 
 `<directive>` can be a name (`wikipedia`), filename (`wikipedia.yaml`), or path.
@@ -141,15 +166,22 @@ python -m scraper.main scrape <directive> [--json|--csv|--sqlite|--mongo] [--pre
 | `--csv` | Append to `output/<name>.csv` |
 | `--sqlite` | Save to `output/scrapit.db` |
 | `--mongo` | Save to MongoDB |
+| `--postgres` | Save to PostgreSQL |
 | `--excel` | Append to `output/<name>.xlsx` |
+| `--sheets` | Append to Google Sheets (requires `--sheets-id`) |
+| `--parquet` | Save to `output/<name>.parquet` |
 | `--format` | JSON format: `pretty` (indented, default) or `compact` (minified) |
 | `--preview` | Print result, do not save |
 | `--diff` | Compare with previous JSON output and show changes |
+| `--stream` | Emit NDJSON lines to stdout as each spider page completes |
+| `--resume` | Resume interrupted spider/paginated scrape from checkpoint |
+| `--reset-state` | Clear incremental spider state for this directive |
+| `--timeout N` | Per-request timeout in seconds (overrides directive setting) |
 
 ### `batch` — all directives in a folder
 
 ```bash
-python -m scraper.main batch [folder] [--json|--csv|--sqlite|--mongo|--excel] [--preview] [--diff]
+scrapit batch [folder] [--json|--csv|--sqlite|--mongo|--excel] [--preview] [--diff]
 ```
 
 Default folder: `scraper/directives/`
@@ -157,10 +189,35 @@ Default folder: `scraper/directives/`
 ### `list` — inspect directives
 
 ```bash
-python -m scraper.main list [--dir path/to/folder]
+scrapit list [--dir path/to/folder]
 ```
 
-Shows site, backend, fields, transforms, validation rules, and cache config.
+Shows site, backend, fields, transforms, validation rules, cache, and schedule config.
+
+### `run` — daemon / recurring schedule
+
+```bash
+scrapit run <directive> [--json|--sqlite|...]
+```
+
+Reads the `schedule:` key from the directive YAML and runs it repeatedly on that schedule. Supports cron expressions (requires `croniter`) or simple intervals like `5m`, `1h`.
+
+```yaml
+site: https://news.ycombinator.com
+use: beautifulsoup
+schedule: "*/30 * * * *"   # every 30 minutes
+scrape:
+  titles: ['.titleline > a', {attr: text, all: true}]
+```
+
+### `export` — migrate between backends
+
+```bash
+scrapit export --from sqlite --to csv --directive hn
+scrapit export --from sqlite --to mongo --directive product --since 2026-01-01
+scrapit export --from json   --to parquet --directive wikipedia
+scrapit export --from sqlite --to csv --all   # all directives
+```
 
 ### `suggest-selectors` — ask Claude for CSS selectors
 
@@ -196,22 +253,44 @@ Fetches the page, sends the content to Claude, and generates a ready-to-use YAML
 ### `query` — read stored data
 
 ```bash
-# recent scrapes from SQLite
-python -m scraper.main query --backend sqlite --limit 10
-
-# filter by directive name
-python -m scraper.main query --directive wikipedia
-
-# filter by URL fragment
-python -m scraper.main query --url wikipedia.org
+scrapit query --backend sqlite --limit 10
+scrapit query --directive wikipedia
+scrapit query --url wikipedia.org
 ```
 
 ### `cache` — manage HTTP cache
 
 ```bash
-python -m scraper.main cache stats        # show cache size and entry count
-python -m scraper.main cache clear        # delete all cached responses
-python -m scraper.main cache invalidate --url https://example.com
+scrapit cache stats                              # show cache size and entry count
+scrapit cache clear                              # delete all cached responses
+scrapit cache invalidate --url https://example.com
+```
+
+### `diff` — compare two output files
+
+```bash
+scrapit diff old.json new.json
+scrapit diff old.json new.json --key url         # use URL as record key
+scrapit diff old.json new.json --summary         # counts only, no detail
+```
+
+### `validate` — lint a directive
+
+```bash
+scrapit validate wikipedia        # check required keys, transforms, selectors
+```
+
+### `serve` — web dashboard
+
+```bash
+scrapit serve                     # opens http://127.0.0.1:7331
+scrapit serve --host 0.0.0.0 --port 8080 --no-browser
+```
+
+### `doctor` — environment check
+
+```bash
+scrapit doctor                    # checks all optional/required dependencies
 ```
 
 ---
@@ -239,7 +318,7 @@ scrape:
 
 ```yaml
 site: https://example.com
-use: beautifulsoup       # or playwright
+use: beautifulsoup       # beautifulsoup | playwright | httpx | graphql | brightdata
 
 # ── Mode ─────────────────────────────────────────────────────────────────────
 mode: single             # single (default) | spider
@@ -252,27 +331,38 @@ sites:
 # ── Request options ───────────────────────────────────────────────────────────
 retries: 3               # HTTP retries with exponential backoff (bs4)
 timeout: 15              # seconds (bs4) or milliseconds (playwright)
+delay: 1.0               # seconds between requests (rate limiting)
 headers:                 # extra HTTP headers
-  Authorization: Bearer xxx
+  Authorization: Bearer ${TOKEN}   # ${VAR} is interpolated from environment
 cookies:                 # bs4: dict  |  playwright: list of {name,value,domain}
   session_id: abc123
-proxy: http://proxy:8080
+proxy: http://proxy:8080 # or: brightdata (uses BRIGHTDATA_* env vars)
+respect_robots: true     # check robots.txt before fetching (bs4 only)
 
-# Proxy with authentication:
-# proxy: http://user:password@proxy:8080
-# proxy: https://user:password@proxy:8080
-# proxy: socks5://user:password@proxy:1080
+# ── Proxy pool (rotation) ─────────────────────────────────────────────────────
+proxies:
+  - http://proxy1:8080
+  - http://proxy2:8080
+proxy_strategy: round_robin   # round_robin (default) | random
 
-# Using environment variable (set in .env):
-# proxy: ${PROXY_URL}
+# ── Throttle ─────────────────────────────────────────────────────────────────
+throttle:
+  requests_per_second: 2
+  jitter: 0.5            # adds random 0–0.5s extra delay
 
 # ── Cache ─────────────────────────────────────────────────────────────────────
 cache:
   ttl: 3600              # seconds (0 = disabled)
+  backend: file          # file (default) | redis
+  key_prefix: scrapit:   # Redis only
+
+# ── Schedule (used by `scrapit run` daemon) ───────────────────────────────────
+schedule: "*/30 * * * *" # cron expression, or simple: 5m, 1h
 
 # ── Playwright-only ───────────────────────────────────────────────────────────
 wait_for: '#content'     # wait for selector before parsing
 screenshot: true         # save full-page screenshot to output/
+stealth: true            # randomise UA, viewport, locale, navigator fingerprint
 
 # ── Scrape spec ───────────────────────────────────────────────────────────────
 scrape:
@@ -295,12 +385,15 @@ paginate:
   attr: href
   max_pages: 5
 
-# ── Spider mode (bs4 only) ────────────────────────────────────────────────────
+# ── Spider mode ───────────────────────────────────────────────────────────────
 follow:
   selector: 'a.article-link'
   attr: href
   max: 50                # max pages to scrape
   same_domain: true      # stay on same domain
+  depth: 1               # link-following depth
+  incremental: true      # skip URLs visited in previous runs (persistent state)
+  parallel: 5            # async concurrent fetching (requires httpx)
 
 # ── Transform pipeline ────────────────────────────────────────────────────────
 transform:
@@ -339,11 +432,12 @@ notify:
 
 | Transform | Argument | Description |
 |-----------|----------|-------------|
-| `strip` | — | Strip whitespace |
+| `strip` | — | Strip leading/trailing whitespace |
 | `lower` / `upper` / `title` | — | Change case |
 | `capitalize` | — | First character upper, rest unchanged |
 | `sentence_case` | — | First character upper, rest lower |
-| `int` / `float` | — | Parse number (removes non-numeric chars) |
+| `int` / `float` | — | Parse number (removes non-numeric chars, handles European notation) |
+| `boolean` | — | `"true"`/`"yes"`/`"1"` → `True`, `"false"`/`"no"` → `False` |
 | `count` | — | Length of a string or list |
 | `regex` | `pattern` | Extract first regex match |
 | `regex_group` | `{pattern, group}` | Extract specific capture group |
@@ -359,6 +453,10 @@ notify:
 | `slugify` | — | Convert text to a URL-friendly slug (`Hello World` → `hello-world`) |
 | `truncate` | `N` | Truncate to N characters without breaking words, appends `...` |
 | `normalize_whitespace` | — | Collapse multiple spaces/tabs into a single space and strip |
+| `date` | — | Parse date string to ISO `YYYY-MM-DD` (auto-detects common formats) |
+| `parse_date` | `{input_format, output_format}` | Parse date with custom strptime format |
+| `pad` | `{width, char, side}` | Pad string to fixed width (`pad: {width: 5, char: "0", side: left}`) |
+| `hash` | `algorithm` | Hash value: `md5`, `sha1`, `sha256`, `sha512` |
 
 ### Available validation rules
 
@@ -395,11 +493,15 @@ All outputs go to `output/` at the project root.
 ```
 scrapit/
   scraper/
-    main.py                   CLI entry point (init/scrape/batch/list/query/cache)
+    main.py                   CLI (scrape/batch/list/query/cache/export/run/serve/diff/validate/doctor…)
     config.py                 Environment variables and paths
     logger.py                 Logging → console + output/scraper.log
     hooks.py                  Lifecycle hook registry
     reporter.py               Timing and field coverage stats
+    plugins.py                Plugin loader — discovers transforms/backends via entry_points
+    proxy.py                  ProxyPool — round-robin / random rotation
+    colors.py                 ANSI color helpers for CLI output
+    dashboard.py              FastAPI web dashboard (scrapit serve)
     directives/               Built-in example directives
       wikipedia.yaml
       hn.yaml                 Hacker News (paginated)
@@ -407,29 +509,44 @@ scrapit/
       github_trending.yaml    GitHub trending (all: true)
     scrapers/
       __init__.py             Pipeline dispatcher
-      bs4_scraper.py          BeautifulSoup backend
-      playwright_scraper.py   Playwright backend
+      bs4_scraper.py          BeautifulSoup + retry + proxy + cache
+      playwright_scraper.py   Playwright + stealth mode
+      httpx_scraper.py        httpx async backend
+      graphql_scraper.py      GraphQL API backend
       paginator.py            Pagination support
-      spider.py               Spider / link-following
+      spider.py               Spider (incremental, parallel asyncio)
     transforms/
-      __init__.py             Transform pipeline engine
+      __init__.py             28+ transform functions + plugin registry
     validators/
       __init__.py             Validation engine
     storage/
       mongo.py                MongoDB (lazy connect)
       json_file.py            JSON output
       csv_file.py             CSV output (append)
-      sqlite.py               SQLite (zero-config)
+      sqlite.py               SQLite (zero-config, with read() for export)
+      excel.py                Excel XLSX (append mode)
+      google_sheets.py        Google Sheets live sync
+      postgres.py             PostgreSQL
+      parquet_file.py         Apache Parquet (pyarrow)
       diff.py                 Change detection
     cache/
-      __init__.py             HTTP cache with TTL
+      __init__.py             HTTP cache with TTL (file or Redis)
+      redis_cache.py          Redis cache backend
+    integrations/
+      anthropic.py            Anthropic SDK tools + agentic loop
+      openai.py               OpenAI function calling + agent
+      langchain.py            LangChain / CrewAI / LangGraph toolkit
+      llamaindex.py           LlamaIndex reader
+      mcp.py                  MCP server (Claude Desktop / Cursor / Claude Code)
+      brightdata.py           Bright Data Scraping Browser integration
     notifications/
-      __init__.py             Webhook notifications
+      __init__.py             Webhook notifications (Slack, Discord, custom)
     queue/
       producer.py             RabbitMQ producer
       consumer.py             RabbitMQ consumer
   output/                     Generated data (gitignored)
   .cache/                     HTTP cache (gitignored)
+  pyproject.toml              Extras: ui, anthropic, mcp, httpx, parquet, redis…
   requirements.txt
   .env
 ```
@@ -684,70 +801,37 @@ Quick ways to contribute:
 
 ## Proxy Configuration
 
-You can use proxies in your directives to route requests through proxy servers.
-
-### Basic Usage
+### Single proxy
 
 ```yaml
-site: example.com
-use: bs4
-
+site: https://example.com
+use: beautifulsoup
+proxy: http://proxy.example.com:8080   # or ${PROXY_URL} from env
 scrape:
-  url: https://example.com/products
-  items:
-    selector: ".product"
-    fields:
-      name:
-        selector: "h3"
-        method: text
-
-# Proxy configuration
-proxy:
-  enabled: true
-  url: "http://proxy.example.com:8080"
-  # Or use environment variables
-  # url: "${HTTP_PROXY}"
+  title: ['h1']
 ```
 
-### Using with Environment Variables
+### Proxy pool (rotation)
 
 ```yaml
-proxy:
-  enabled: true
-  url: "${HTTP_PROXY}"  # Reads from HTTP_PROXY or HTTPS_PROXY env var
+proxies:
+  - http://proxy1.example.com:8080
+  - http://proxy2.example.com:8080
+  - http://proxy3.example.com:8080
+proxy_strategy: round_robin   # or: random
+
+# Scrapit automatically retries with the next proxy on failure
 ```
 
-### Proxies for Different Protocols
+### Bright Data Scraping Browser
 
 ```yaml
-proxy:
-  http: "http://http-proxy.example.com:8080"
-  https: "https://https-proxy.example.com:8080"
+use: brightdata   # full CDP via Scraping Browser
+# requires BRIGHTDATA_CUSTOMER, BRIGHTDATA_ZONE, BRIGHTDATA_PASSWORD in .env
 ```
 
-### Rotating Proxies
-
-```yaml
-proxy:
-  enabled: true
-  rotate: true
-  proxies:
-    - "http://proxy1.example.com:8080"
-    - "http://proxy2.example.com:8080"
+```bash
+pip install scrapit-scraper[brightdata]
 ```
-
-### Common Proxy Providers
-
-- **SmartProxy** - Residential proxies
-- **Oxylabs** - Enterprise proxies  
-- **ScraperAPI** - API with proxy rotation
-- **ScrapingBee** - Headless browser with proxies
 
 ---
-
-### Best Practices
-
-1. Use residential proxies for sensitive sites
-2. Rotate proxies to avoid blocks
-3. Set appropriate delay between requests
-4. Monitor proxy health and replace dead proxies

@@ -750,11 +750,11 @@
     <div class="hero-side">
       <div class="hero-meta-item">
         <span class="label">transforms</span>
-        <span class="val amber">15+</span>
+        <span class="val amber">28+</span>
       </div>
       <div class="hero-meta-item">
         <span class="label">storage backends</span>
-        <span class="val">4</span>
+        <span class="val">8</span>
       </div>
       <div class="hero-meta-item">
         <span class="label">ai frameworks</span>
@@ -762,7 +762,7 @@
       </div>
       <div class="hero-meta-item">
         <span class="label">scraping engines</span>
-        <span class="val">2</span>
+        <span class="val">5</span>
       </div>
       <div class="hero-meta-item">
         <span class="label">boilerplate</span>
@@ -780,34 +780,46 @@
 <div class="ticker-wrap">
   <div class="ticker-track">
     <!-- First pass -->
-    <div class="ticker-item"><span class="t-num">15+</span><span class="t-label">declarative transforms</span></div>
+    <div class="ticker-item"><span class="t-num">28+</span><span class="t-label">declarative transforms</span></div>
     <div class="ticker-dot"></div>
-    <div class="ticker-item"><span class="t-num">BS4</span><span class="t-label">+ Playwright backends</span></div>
+    <div class="ticker-item"><span class="t-num">5</span><span class="t-label">scraping engines</span></div>
     <div class="ticker-dot"></div>
-    <div class="ticker-item"><span class="t-num">JSON</span><span class="t-label">CSV / SQLite / MongoDB</span></div>
+    <div class="ticker-item"><span class="t-num">8</span><span class="t-label">storage backends</span></div>
     <div class="ticker-dot"></div>
     <div class="ticker-item"><span class="t-num">MCP</span><span class="t-label">server included</span></div>
     <div class="ticker-dot"></div>
     <div class="ticker-item"><span class="t-num">--diff</span><span class="t-label">change detection</span></div>
     <div class="ticker-dot"></div>
     <div class="ticker-item"><span class="t-num">5</span><span class="t-label">AI framework integrations</span></div>
+    <div class="ticker-dot"></div>
+    <div class="ticker-item"><span class="t-num">Redis</span><span class="t-label">distributed cache backend</span></div>
+    <div class="ticker-dot"></div>
+    <div class="ticker-item"><span class="t-num">--stream</span><span class="t-label">NDJSON live output</span></div>
+    <div class="ticker-dot"></div>
+    <div class="ticker-item"><span class="t-num">parallel</span><span class="t-label">async spider mode</span></div>
     <div class="ticker-dot"></div>
     <div class="ticker-item"><span class="t-num">0</span><span class="t-label">boilerplate required</span></div>
     <div class="ticker-dot"></div>
     <div class="ticker-item"><span class="t-num">YAML</span><span class="t-label">only config needed</span></div>
     <div class="ticker-dot"></div>
     <!-- Duplicate for seamless loop -->
-    <div class="ticker-item"><span class="t-num">15+</span><span class="t-label">declarative transforms</span></div>
+    <div class="ticker-item"><span class="t-num">28+</span><span class="t-label">declarative transforms</span></div>
     <div class="ticker-dot"></div>
-    <div class="ticker-item"><span class="t-num">BS4</span><span class="t-label">+ Playwright backends</span></div>
+    <div class="ticker-item"><span class="t-num">5</span><span class="t-label">scraping engines</span></div>
     <div class="ticker-dot"></div>
-    <div class="ticker-item"><span class="t-num">JSON</span><span class="t-label">CSV / SQLite / MongoDB</span></div>
+    <div class="ticker-item"><span class="t-num">8</span><span class="t-label">storage backends</span></div>
     <div class="ticker-dot"></div>
     <div class="ticker-item"><span class="t-num">MCP</span><span class="t-label">server included</span></div>
     <div class="ticker-dot"></div>
     <div class="ticker-item"><span class="t-num">--diff</span><span class="t-label">change detection</span></div>
     <div class="ticker-dot"></div>
     <div class="ticker-item"><span class="t-num">5</span><span class="t-label">AI framework integrations</span></div>
+    <div class="ticker-dot"></div>
+    <div class="ticker-item"><span class="t-num">Redis</span><span class="t-label">distributed cache backend</span></div>
+    <div class="ticker-dot"></div>
+    <div class="ticker-item"><span class="t-num">--stream</span><span class="t-label">NDJSON live output</span></div>
+    <div class="ticker-dot"></div>
+    <div class="ticker-item"><span class="t-num">parallel</span><span class="t-label">async spider mode</span></div>
     <div class="ticker-dot"></div>
     <div class="ticker-item"><span class="t-num">0</span><span class="t-label">boilerplate required</span></div>
     <div class="ticker-dot"></div>
@@ -992,8 +1004,8 @@ answer = agent.run(
     <div class="feat-grid">
       <div class="feat-card">
         <div class="feat-icon">// engines</div>
-        <h3>Two scraping backends</h3>
-        <p>BeautifulSoup for fast static pages. Playwright for JavaScript-heavy sites. Switch with <code>use: playwright</code>.</p>
+        <h3>Five scraping backends</h3>
+        <p>BeautifulSoup, Playwright (JS), httpx (async), GraphQL, and Bright Data. Switch with <code>use:</code>.</p>
       </div>
       <div class="feat-card">
         <div class="feat-icon">// pagination</div>
@@ -1003,12 +1015,12 @@ answer = agent.run(
       <div class="feat-card">
         <div class="feat-icon">// spider</div>
         <h3>Spider mode</h3>
-        <p>Discover and scrape all linked pages from an index. Supports <code>same_domain</code> and <code>max</code> page limits.</p>
+        <p>Discover and scrape linked pages from an index. Set <code>follow.parallel: 10</code> for async concurrent fetching with httpx.</p>
       </div>
       <div class="feat-card">
         <div class="feat-icon">// pipeline</div>
         <h3>Transform pipeline</h3>
-        <p>15+ declarative transforms per field: <code>strip</code>, <code>regex</code>, <code>float</code>, <code>slugify</code>, <code>template</code>, <code>remove_tags</code> and more.</p>
+        <p>28+ declarative transforms per field: <code>strip</code>, <code>regex</code>, <code>float</code>, <code>date</code>, <code>hash</code>, <code>boolean</code>, <code>slugify</code> and more.</p>
       </div>
       <div class="feat-card">
         <div class="feat-icon">// validation</div>
@@ -1017,13 +1029,13 @@ answer = agent.run(
       </div>
       <div class="feat-card">
         <div class="feat-icon">// storage</div>
-        <h3>4 storage backends</h3>
-        <p>JSON, CSV (append mode), SQLite (zero-config), MongoDB. Mix and match with CLI flags on each run.</p>
+        <h3>8 storage backends</h3>
+        <p>JSON, CSV, SQLite, MongoDB, PostgreSQL, Excel, Google Sheets, Parquet. Mix and match with CLI flags on each run.</p>
       </div>
       <div class="feat-card">
         <div class="feat-icon">// cache</div>
         <h3>HTTP cache</h3>
-        <p>File-based cache with TTL. Avoid hammering sites during development. Set <code>cache: {ttl: 3600}</code>.</p>
+        <p>File-based or Redis-backed cache with TTL. Share cache across instances with <code>cache: {backend: redis}</code>.</p>
       </div>
       <div class="feat-card">
         <div class="feat-icon">// diff</div>
@@ -1031,19 +1043,49 @@ answer = agent.run(
         <p>Diff results against the previous run. Fire a webhook when content changes. Use with <code>--diff</code>.</p>
       </div>
       <div class="feat-card">
+        <div class="feat-icon">// proxy</div>
+        <h3>Proxy rotation</h3>
+        <p>Define a pool of proxies per directive. Scrapit rotates round-robin or randomly and retries on failure.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">// stealth</div>
+        <h3>Stealth mode</h3>
+        <p>Playwright with <code>stealth: true</code> — randomised UA, viewport, locale, and navigator fingerprint injection.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">// schedule</div>
+        <h3>Built-in scheduler</h3>
+        <p>Add <code>schedule: "*/30 * * * *"</code> to any directive and run <code>scrapit run</code> as a daemon. Cron syntax supported.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">// stream</div>
+        <h3>Streaming output</h3>
+        <p>Use <code>--stream</code> to emit NDJSON lines to stdout as each spider page completes. No waiting for the full run.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">// export</div>
+        <h3>Backend export</h3>
+        <p>Migrate data between backends: <code>scrapit export --from sqlite --to csv --directive hn</code>. Supports <code>--since</code> date filter.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">// dashboard</div>
+        <h3>Web dashboard</h3>
+        <p>Run <code>scrapit serve</code> to open a dark-theme UI for browsing results, running directives, and downloading output.</p>
+      </div>
+      <div class="feat-card">
         <div class="feat-icon">// hooks</div>
         <h3>Lifecycle hooks</h3>
         <p>Register Python callbacks for <code>before_scrape</code>, <code>after_scrape</code>, <code>on_error</code>, <code>on_change</code>, <code>on_save</code>.</p>
       </div>
       <div class="feat-card">
+        <div class="feat-icon">// plugins</div>
+        <h3>Plugin system</h3>
+        <p>Publish custom transforms or storage backends as pip packages. Scrapit discovers them via <code>entry_points</code> at startup.</p>
+      </div>
+      <div class="feat-card">
         <div class="feat-icon">// ai</div>
         <h3>AI-native</h3>
         <p>Native integrations for Claude, OpenAI, LangChain, CrewAI, LlamaIndex, and MCP. One import away.</p>
-      </div>
-      <div class="feat-card">
-        <div class="feat-icon">// selectors</div>
-        <h3>Fallback selectors</h3>
-        <p>Define a list of selectors per field. Scrapit tries them in order and uses the first match.</p>
       </div>
       <div class="feat-card">
         <div class="feat-icon">// reporting</div>
@@ -1088,6 +1130,14 @@ answer = agent.run(
               <tr><td class="t-name">slugify</td><td class="t-ex">- slugify</td><td class="t-desc">"Hello World" → "hello-world"</td></tr>
               <tr><td class="t-name">normalize_whitespace</td><td class="t-ex">- normalize_whitespace</td><td class="t-desc">Collapse multiple spaces/newlines</td></tr>
               <tr><td class="t-name">truncate</td><td class="t-ex">{truncate: 100}</td><td class="t-desc">Cut at N chars without breaking words</td></tr>
+              <tr><td class="t-name">capitalize</td><td class="t-ex">- capitalize</td><td class="t-desc">First char upper, rest unchanged</td></tr>
+              <tr><td class="t-name">sentence_case</td><td class="t-ex">- sentence_case</td><td class="t-desc">First char upper, rest lower</td></tr>
+              <tr><td class="t-name">count</td><td class="t-ex">- count</td><td class="t-desc">Length of string or list</td></tr>
+              <tr><td class="t-name">boolean</td><td class="t-ex">- boolean</td><td class="t-desc">"true"/"yes"/"1" → True, "false"/"no" → False</td></tr>
+              <tr><td class="t-name">date</td><td class="t-ex">- date</td><td class="t-desc">Parse date string to ISO YYYY-MM-DD (auto-detects format)</td></tr>
+              <tr><td class="t-name">parse_date</td><td class="t-ex">{parse_date: {input_format: "%d/%m/%Y"}}</td><td class="t-desc">Parse date with custom format, optional output format</td></tr>
+              <tr><td class="t-name">pad</td><td class="t-ex">{pad: {width: 5, char: "0", side: left}}</td><td class="t-desc">Pad string to fixed width</td></tr>
+              <tr><td class="t-name">hash</td><td class="t-ex">{hash: sha256}</td><td class="t-desc">Hash value with md5/sha1/sha256/sha512</td></tr>
             </tbody>
           </table>
         </div>
@@ -1183,6 +1233,26 @@ answer = agent.run(
         <h3>MongoDB</h3>
         <span class="flag">--mongo</span>
         <p>Stores results in a MongoDB collection. Configure via <code>MONGO_URI</code> in <code>.env</code>.</p>
+      </div>
+      <div class="storage-card">
+        <h3>PostgreSQL</h3>
+        <span class="flag">--postgres</span>
+        <p>Enterprise-grade relational storage. Configure via <code>POSTGRES_URL</code>. Requires <code>psycopg2</code>.</p>
+      </div>
+      <div class="storage-card">
+        <h3>Excel</h3>
+        <span class="flag">--excel</span>
+        <p>Appends rows to an <code>.xlsx</code> workbook. One sheet per directive. Requires <code>openpyxl</code>.</p>
+      </div>
+      <div class="storage-card">
+        <h3>Google Sheets</h3>
+        <span class="flag">--sheets</span>
+        <p>Appends rows to a live Google Sheets spreadsheet. Uses service account credentials.</p>
+      </div>
+      <div class="storage-card">
+        <h3>Parquet</h3>
+        <span class="flag">--parquet</span>
+        <p>Columnar binary format for analytics pipelines. Requires <code>pyarrow</code>. Great for Pandas / DuckDB.</p>
       </div>
     </div>
 
