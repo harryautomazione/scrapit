@@ -10,11 +10,13 @@ Directive format:
     same_domain: true      — restrict to same domain as `site` (default: true)
     depth: 1               — link-following depth from index (default: 1)
     incremental: true      — skip URLs visited in previous runs (persistent state)
+    parallel: 5            — concurrent requests (default: 1, sequential)
 
 The spider starts at `site`, discovers links matching `selector`,
 then scrapes each discovered URL with the same `scrape` spec.
 """
 
+import asyncio
 import json
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
@@ -39,6 +41,7 @@ class Spider:
         self.base_domain = urlparse(dados["site"]).netloc
         self._resume = resume
         self._incremental = self.follow.get("incremental", False)
+        self._parallel = int(self.follow.get("parallel", 1))
 
         cache_cfg = dados.get("cache", {})
         self._fetch_kw = dict(
@@ -94,7 +97,7 @@ class Spider:
             indent=2,
         ))
 
-    def run(self, directive_name: str = "spider") -> list[dict]:
+    def run(self, directive_name: str = "spider", on_result=None) -> list[dict]:
         """Discover and scrape all linked pages. Returns list of result dicts."""
         completed: set[str] = set()
         visited: set[str] = set()
@@ -116,24 +119,17 @@ class Spider:
         log(f"spider: found {len(discovered)} URLs from {self.dados['site']}")
         self._save_checkpoint(directive_name, discovered, completed)
 
-        results = []
-        for url in discovered[: self.max]:
-            if url in completed:
-                continue
-            if self._incremental and url in visited:
-                continue
-            try:
-                html = fetch_html(url, **self._fetch_kw)
-                soup = BeautifulSoup(html, "html.parser")
-                result = parse_page(soup, url, self.dados["scrape"], raw_html=html)
-                result["_source"] = self.dados["site"]
-                results.append(result)
-                completed.add(url)
-                visited.add(url)
-                self._save_checkpoint(directive_name, discovered, completed)
-                log(f"spider: scraped {url}")
-            except Exception as e:
-                log(f"spider: error scraping {url}: {e}", "warning")
+        queue = [
+            url for url in discovered[: self.max]
+            if url not in completed and not (self._incremental and url in visited)
+        ]
+
+        if self._parallel > 1:
+            results = asyncio.run(
+                self._run_parallel(queue, directive_name, completed, visited)
+            )
+        else:
+            results = self._run_sequential(queue, directive_name, completed, visited, on_result=on_result)
 
         # Persist incremental state (survives across runs)
         if self._incremental:
@@ -145,6 +141,82 @@ class Spider:
             cp.unlink()
 
         return results
+
+    def _run_sequential(
+        self,
+        queue: list[str],
+        directive_name: str,
+        completed: set[str],
+        visited: set[str],
+        on_result=None,
+    ) -> list[dict]:
+        results = []
+        discovered = queue  # already filtered
+        total = len(queue)
+        for i, url in enumerate(queue, 1):
+            try:
+                html = fetch_html(url, **self._fetch_kw)
+                soup = BeautifulSoup(html, "html.parser")
+                result = parse_page(soup, url, self.dados["scrape"], raw_html=html)
+                result["_source"] = self.dados["site"]
+                results.append(result)
+                completed.add(url)
+                visited.add(url)
+                self._save_checkpoint(directive_name, discovered, completed)
+                log(f"spider: [{i}/{total}] scraped {url}")
+                if on_result:
+                    on_result(result, i, total)
+            except Exception as e:
+                log(f"spider: error scraping {url}: {e}", "warning")
+        return results
+
+    async def _run_parallel(
+        self,
+        queue: list[str],
+        directive_name: str,
+        completed: set[str],
+        visited: set[str],
+    ) -> list[dict]:
+        try:
+            import httpx
+        except ImportError:
+            log("spider: httpx not installed, falling back to sequential", "warning")
+            return self._run_sequential(queue, directive_name, completed, visited)
+
+        semaphore = asyncio.Semaphore(self._parallel)
+        results_map: dict[int, dict] = {}
+
+        async def fetch_one(idx: int, url: str):
+            async with semaphore:
+                try:
+                    timeout = self._fetch_kw.get("timeout", 15)
+                    headers = self._fetch_kw.get("headers") or {}
+                    proxy = self._fetch_kw.get("proxy")
+                    proxies = {"http://": proxy, "https://": proxy} if proxy else None
+                    async with httpx.AsyncClient(
+                        headers=headers,
+                        proxies=proxies,
+                        timeout=timeout,
+                        follow_redirects=True,
+                    ) as client:
+                        resp = await client.get(url)
+                        resp.raise_for_status()
+                        html = resp.text
+                    soup = BeautifulSoup(html, "html.parser")
+                    result = parse_page(soup, url, self.dados["scrape"], raw_html=html)
+                    result["_source"] = self.dados["site"]
+                    results_map[idx] = result
+                    completed.add(url)
+                    visited.add(url)
+                    log(f"spider: scraped {url}")
+                except Exception as e:
+                    log(f"spider: error scraping {url}: {e}", "warning")
+
+        tasks = [fetch_one(i, url) for i, url in enumerate(queue)]
+        await asyncio.gather(*tasks)
+
+        # Preserve order
+        return [results_map[i] for i in sorted(results_map)]
 
     def _discover(self, soup: BeautifulSoup, base_url: str) -> list[str]:
         seen: set[str] = set()
