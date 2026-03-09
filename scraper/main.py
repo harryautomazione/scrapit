@@ -136,6 +136,21 @@ def _run_one(
             notify(name, first, changes, notify_config)
             if not changes:
                 print("→ no changes detected.")
+            else:
+                from datetime import datetime as _dt
+                import json as _json
+                diff_payload = {
+                    "changed": True,
+                    "fields": changes,
+                    "timestamp": _dt.now().isoformat(),
+                }
+                out_dir = Path(output_dir) if output_dir else Path("output")
+                out_dir.mkdir(exist_ok=True)
+                diff_file = out_dir / f"{name}.diff.json"
+                diff_file.write_text(_json.dumps(diff_payload, indent=2, default=str))
+                print(f"→ {len(changes)} field(s) changed — saved to {diff_file}")
+                for field, vals in changes.items():
+                    print(f"   {field}: {vals['old']!r} → {vals['new']!r}")
 
     if not preview:
         _save(result, name, dest, output_dir=output_dir, compact=compact,
