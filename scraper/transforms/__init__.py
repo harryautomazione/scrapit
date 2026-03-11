@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import urllib.parse
 from datetime import datetime
 from typing import Any
 
@@ -375,6 +376,22 @@ def _hash(value, algorithm, **__):
     if algo not in supported:
         return value
     return hashlib.new(algo, value.encode()).hexdigest()
+
+
+@_t("url_encode")
+def _url_encode(value, _, **__):
+    """Percent-encode special characters in a URL string."""
+    if not isinstance(value, str):
+        return value
+    return urllib.parse.quote(value)
+
+
+@_t("url_decode")
+def _url_decode(value, _, **__):
+    """Decode percent-encoded characters in a URL string."""
+    if not isinstance(value, str):
+        return value
+    return urllib.parse.unquote(value)
 
 
 @_t("template")

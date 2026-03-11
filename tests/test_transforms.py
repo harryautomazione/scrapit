@@ -655,3 +655,18 @@ class TestComplexScenarios:
         # 5. regex -> "1,234.56"
         # 6. float -> 1234.56
         assert apply(val, pipeline) == 1234.56
+
+    def test_url_encode(self):
+        """Encode special characters in URL."""
+        assert apply("hello world!", ["url_encode"]) == "hello%20world%21"
+        assert apply("Café", ["url_encode"]) == "Caf%C3%A9"
+
+    def test_url_decode(self):
+        """Decode percent-encoded characters."""
+        assert apply("hello%20world%21", ["url_decode"]) == "hello world!"
+        assert apply("Caf%C3%A9", ["url_decode"]) == "Café"
+
+    def test_url_transforms_passthrough(self):
+        """Ensure non-string values pass through URL transforms."""
+        assert apply(123, ["url_encode"]) == 123
+        assert apply(None, ["url_decode"]) is None
