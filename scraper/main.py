@@ -52,6 +52,15 @@ def _resolve(path_str: str) -> Path:
     print(f"error: directive not found: {path_str}", file=sys.stderr)
     if available:
         print(f"Available directives: {', '.join(sorted(available))}", file=sys.stderr)
+    
+    # Fallback: if directive not found, list all available YAML directives 
+    # in the default directives directory to assist the user.
+    print(f"error: directive not found: {path_str}", file=sys.stderr)
+    if _DIRECTIVES_DIR.exists():
+        available = sorted([f.stem for f in _DIRECTIVES_DIR.glob("*.yaml")])
+        if available:
+            print(f"Available directives: {', '.join(available)}", file=sys.stderr)
+    
     sys.exit(1)
 
 
@@ -139,6 +148,24 @@ def _run_one(
     # Pretty-print to console
     print(json.dumps(result, indent=2, default=str))
 
+    # Print validation summary if _valid key is present
+    items = result if isinstance(result, list) else [result]
+    if items and "_valid" in items[0]:
+        def green(text): return f"\033[92m{text}\033[0m"
+        def red(text): return f"\033[91m{text}\033[0m"
+        print(f"\n{green('✓') if preview else ''} validation summary:")
+        for i, item in enumerate(items, 1):
+            is_valid = item.get("_valid")
+            identifier = str(item.get("title") or item.get("name") or item.get("url") or f"record {i}")
+            if len(identifier) > 40:
+                identifier = identifier[:37] + "..."
+            
+            if is_valid:
+                print(f"  {green('✓')} valid   {identifier}")
+            else:
+                errs = ", ".join(item.get("_errors", ["unknown error"]))
+                print(f"  {red('✗')} invalid {identifier}: {errs}")
+
     # Change detection
     if detect_changes:
         previous = load_previous(name)
@@ -181,6 +208,8 @@ def _run_one(
               spreadsheet_id=spreadsheet_id, credentials_path=credentials_path)
         from scraper import hooks
         hooks.fire("on_save", result, dest)
+    else:
+        print("→ dry-run: result not saved")
 
 
 # ── Commands ──────────────────────────────────────────────────────────────────
@@ -215,6 +244,9 @@ def cmd_batch(args):
         sys.exit(1)
 
     yamls = sorted(folder.glob("*.yaml")) + sorted(folder.glob("*.yml"))
+    if getattr(args, 'limit', None) is not None:
+        yamls = yamls[:args.limit]
+        
     if not yamls:
         print(f"no YAML directives found in {folder}")
         sys.exit(1)
@@ -958,7 +990,7 @@ def _add_output_args(p):
                    help="JSON output format: pretty (indented, default) or compact (minified)")
     p.add_argument("--sheets-id", help="Google Sheets spreadsheet ID (required for --sheets)")
     p.add_argument("--sheets-credentials", help="Path to Google credentials JSON file (required for --sheets)")
-    p.add_argument("--preview", action="store_true", help="Print only, do not save")
+    p.add_argument("--preview", "--dry-run", action="store_true", help="Print only, do not save")
     p.add_argument("--diff", action="store_true", help="Diff against previous JSON output")
     p.add_argument("--resume", action="store_true", help="Resume interrupted spider/paginated scrape from checkpoint")
     p.add_argument("--reset-state", action="store_true", dest="reset_state", help="Clear incremental spider state for this directive")
@@ -991,6 +1023,7 @@ def main():
         "folder", nargs="?", default=str(_DIRECTIVES_DIR),
         help="Folder with YAML directives (default: scraper/directives/)"
     )
+    p_batch.add_argument("--limit", type=int, default=None, help="Run only the first N directives alphabetically")
     _add_output_args(p_batch)
 
     # ── list ──────────────────────────────────────────────────────────────────
