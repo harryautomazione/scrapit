@@ -934,10 +934,26 @@ Add transform: and validate: sections if they make sense for the data."""
 
 def cmd_cache(args):
     from scraper import cache as _cache
+    import os
     if args.action == "stats":
         s = _cache.stats()
-        print(f"cache entries : {s['entries']}")
-        print(f"cache size    : {s['size_kb']} KB")
+        
+        # Check for Redis stats
+        redis_stats = None
+        if os.environ.get("REDIS_URL"):
+            try:
+                from scraper.cache import redis_cache
+                redis_stats = redis_cache.stats()
+            except ImportError:
+                pass
+
+        if redis_stats:
+            print(f"cache entries : {s['entries']} (file) + {redis_stats['entries']} (redis)")
+            print(f"cache size    : {s['size_kb']} KB (file) + {redis_stats['size_kb']} KB (redis)")
+        else:
+            print(f"cache entries : {s['entries']}")
+            print(f"cache size    : {s['size_kb']} KB")
+        
         print(f"cache dir     : {_cache._CACHE_DIR}")
     elif args.action == "clear":
         _cache.clear_all()
