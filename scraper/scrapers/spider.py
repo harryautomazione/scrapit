@@ -42,6 +42,7 @@ class Spider:
         self._resume = resume
         self._incremental = self.follow.get("incremental", False)
         self._parallel = int(self.follow.get("parallel", 1))
+        self._exclude_patterns = self.follow.get("exclude", [])
 
         cache_cfg = dados.get("cache", {})
         self._fetch_kw = dict(
@@ -230,6 +231,17 @@ class Spider:
             if self.same_domain and urlparse(url).netloc != self.base_domain:
                 continue
             if url not in seen:
+                # Check exclusion patterns
+                import re as _re
+                should_exclude = False
+                for pattern in self._exclude_patterns:
+                    if _re.search(str(pattern), url):
+                        should_exclude = True
+                        break
+                
+                if should_exclude:
+                    continue
+
                 seen.add(url)
                 urls.append(url)
 
