@@ -27,6 +27,7 @@ from scraper.storage.diff import diff, load_previous
 from scraper.notifications import notify
 from scraper.logger import log
 from scraper.plugins import load_plugins
+from scraper import colors
 
 load_plugins()
 
@@ -1069,6 +1070,7 @@ def main():
         description="Scrapit — YAML-driven modular web scraper framework",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    parser.add_argument("--no-color", action="store_true", help="Disable ANSI color output")
     sub = parser.add_subparsers(dest="command", required=True)
 
     # ── scrape ────────────────────────────────────────────────────────────────
@@ -1163,6 +1165,9 @@ def main():
     p_serve.add_argument("--no-browser", action="store_true", dest="no_browser", help="Do not open browser automatically")
 
     args = parser.parse_args()
+
+    if args.no_color:
+        colors.disable_color()
 
     dispatch = {
         "init": cmd_init,
