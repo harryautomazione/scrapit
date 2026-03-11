@@ -297,6 +297,8 @@ def cmd_list(args):
                 print(f"    transforms: {', '.join(transforms.keys())}")
             if validate := data.get("validate"):
                 print(f"    validate  : {', '.join(validate.keys())}")
+            if schedule := data.get("schedule"):
+                print(f"    schedule  : {schedule}")
             if cache := data.get("cache"):
                 print(f"    cache   : TTL {cache.get('ttl', 0)}s")
             print()
