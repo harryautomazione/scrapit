@@ -151,8 +151,7 @@ def _run_one(
     # Print validation summary if _valid key is present
     items = result if isinstance(result, list) else [result]
     if items and "_valid" in items[0]:
-        def green(text): return f"\033[92m{text}\033[0m"
-        def red(text): return f"\033[91m{text}\033[0m"
+        from scraper.colors import green, red
         print(f"\n{green('✓') if preview else ''} validation summary:")
         for i, item in enumerate(items, 1):
             is_valid = item.get("_valid")
@@ -221,6 +220,10 @@ def cmd_scrape(args):
         from scraper.scrapers.spider import Spider
         Spider({}, resume=False).reset_state(path.stem)
         print(f"incremental state cleared for '{path.stem}'")
+        return
+
+    if getattr(args, 'validate_only', False):
+        cmd_validate(args)
         return
 
     dest = _dest(args)
@@ -307,6 +310,8 @@ def cmd_list(args):
                 print(f"    transforms: {', '.join(transforms.keys())}")
             if validate := data.get("validate"):
                 print(f"    validate  : {', '.join(validate.keys())}")
+            if schedule := data.get("schedule"):
+                print(f"    schedule  : {schedule}")
             if cache := data.get("cache"):
                 print(f"    cache   : TTL {cache.get('ttl', 0)}s")
             print()
@@ -939,10 +944,26 @@ Add transform: and validate: sections if they make sense for the data."""
 
 def cmd_cache(args):
     from scraper import cache as _cache
+    import os
     if args.action == "stats":
         s = _cache.stats()
-        print(f"cache entries : {s['entries']}")
-        print(f"cache size    : {s['size_kb']} KB")
+        
+        # Check for Redis stats
+        redis_stats = None
+        if os.environ.get("REDIS_URL"):
+            try:
+                from scraper.cache import redis_cache
+                redis_stats = redis_cache.stats()
+            except ImportError:
+                pass
+
+        if redis_stats:
+            print(f"cache entries : {s['entries']} (file) + {redis_stats['entries']} (redis)")
+            print(f"cache size    : {s['size_kb']} KB (file) + {redis_stats['size_kb']} KB (redis)")
+        else:
+            print(f"cache entries : {s['entries']}")
+            print(f"cache size    : {s['size_kb']} KB")
+        
         print(f"cache dir     : {_cache._CACHE_DIR}")
     elif args.action == "clear":
         _cache.clear_all()
@@ -1015,6 +1036,7 @@ def main():
     # ── scrape ────────────────────────────────────────────────────────────────
     p_scrape = sub.add_parser("scrape", help="Scrape a single directive YAML")
     p_scrape.add_argument("directive", help="Name or path of directive (e.g. wikipedia or directives/wikipedia.yaml)")
+    p_scrape.add_argument("--validate-only", action="store_true", help="Validate directive YAML and exit")
     _add_output_args(p_scrape)
 
     # ── batch ─────────────────────────────────────────────────────────────────
