@@ -595,3 +595,63 @@ class TestComplexScenarios:
             spec = {"price": ["float"]}
             output = apply_all(result, spec)
             assert output["price"] == expected
+
+    @pytest.mark.parametrize("val, expected", [
+        ("abc", "abc"),
+        ("12.34", 1234),
+        ("  -42  ", -42),
+        (None, None),
+    ])
+    def test_int_edge_cases(self, val, expected):
+        """Test int transform with non-obvious inputs."""
+        assert apply(val, ["int"]) == expected
+
+    @pytest.mark.parametrize("val, expected", [
+        ("1.234,56", 1234.56),
+        ("1,234.56", 1234.56),
+        ("1,29", 1.29),
+        ("invalid", "invalid"),
+        ("$ 1.000,00", 1000.0),
+    ])
+    def test_float_edge_cases(self, val, expected):
+        """Test float transform with European notation and symbols."""
+        assert apply(val, ["float"]) == expected
+
+    @pytest.mark.parametrize("val, args, expected", [
+        ("hello", {"start": -3}, "llo"),
+        ("hello", {"start": -2, "end": -1}, "l"),
+        ([1, 2, 3, 4, 5], {"start": -2}, [4, 5]),
+        ("abc", {"start": 10}, ""),
+    ])
+    def test_slice_negative_indices(self, val, args, expected):
+        """Test slice transform with negative indices and out of bounds."""
+        assert apply(val, [{"slice": args}]) == expected
+
+    def test_template_missing_context(self):
+        """Test template when context keys are missing."""
+        ctx = {"found": "yes"}
+        # Should stay as placeholder or become empty string depending on implementation
+        # Current implementation replaces {found} and leaves {missing} as is
+        result = apply("value", [{"template": "{found} - {missing}"}], ctx=ctx)
+        assert "yes" in result
+        assert "{missing}" in result
+
+    def test_long_transform_chain(self):
+        """Test a pipeline with 5+ transforms in sequence."""
+        val = "  <p>PRICE: $1,234.56 USD</p>  "
+        pipeline = [
+            "strip", 
+            "remove_tags", 
+            "lower", 
+            {"replace": {"usd": ""}}, 
+            {"regex": r"[\d.,]+"}, 
+            "float"
+        ]
+        # Chain detail:
+        # 1. strip -> "<p>PRICE: $1,234.56 USD</p>"
+        # 2. remove_tags -> "PRICE: $1,234.56 USD"
+        # 3. lower -> "price: $1,234.56 usd"
+        # 4. replace -> "price: $1,234.56 "
+        # 5. regex -> "1,234.56"
+        # 6. float -> 1234.56
+        assert apply(val, pipeline) == 1234.56
