@@ -158,6 +158,18 @@ def api_run_status(name: str):
     return _jobs.get(name, {"status": "idle"})
 
 
+@app.get("/metrics")
+def metrics():
+    """Expose Prometheus metrics for scraping."""
+    from scraper.metrics import get_metrics_content
+    from fastapi.responses import Response
+    try:
+        from prometheus_client import CONTENT_TYPE_LATEST
+    except ImportError:
+        CONTENT_TYPE_LATEST = "text/plain; version=0.0.4"
+    return Response(get_metrics_content(), media_type=CONTENT_TYPE_LATEST)
+
+
 @app.get("/export/{name}/json")
 def export_json(name: str):
     records = _load_json(name)
