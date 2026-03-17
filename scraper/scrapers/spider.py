@@ -219,7 +219,8 @@ class Spider:
                         async with lock:
                             last = self._last_request.get(domain, 0)
                             elapsed = time.time() - last
-                            if elapsed < 0: elapsed = 0 # sanity
+                            if elapsed < 0:
+                                elapsed = 0  # sanity
                             needed = self._delay - elapsed
                             if needed > 0:
                                 await asyncio.sleep(needed)
