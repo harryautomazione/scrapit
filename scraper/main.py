@@ -642,7 +642,7 @@ def cmd_validate(args):
 
 def cmd_serve(args):
     from scraper.dashboard import serve
-    serve(host=args.host, port=args.port, open_browser=not args.no_browser)
+    serve(host=args.host, port=args.port, open_browser=not args.no_browser, auth=args.auth)
 
 
 def cmd_export(args):
@@ -1180,6 +1180,7 @@ def main():
     p_serve.add_argument("--host", default="127.0.0.1", help="Host to bind (default: 127.0.0.1)")
     p_serve.add_argument("--port", type=int, default=7331, help="Port to listen on (default: 7331)")
     p_serve.add_argument("--no-browser", action="store_true", dest="no_browser", help="Do not open browser automatically")
+    p_serve.add_argument("--auth", help="Enable Basic Auth ('username:password')")
 
     args = parser.parse_args()
 
